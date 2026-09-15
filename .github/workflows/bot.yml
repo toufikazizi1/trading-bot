@@ -1,1 +1,44 @@
+name: Trading Bot
 
+on:
+  schedule:
+    - cron: "0 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  run-bot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run bot check
+        env:
+          BOT_MARKET: "crypto"
+          BOT_SYMBOL: "BTC/USDT"
+          BOT_QTY: "0.001"
+          BOT_LIVE: "false"
+          BOT_USE_NEWS: "true"
+          ALPACA_API_KEY: ${{ secrets.ALPACA_API_KEY }}
+          ALPACA_SECRET_KEY: ${{ secrets.ALPACA_SECRET_KEY }}
+          ALPACA_BASE_URL: ${{ secrets.ALPACA_BASE_URL }}
+          BINANCE_API_KEY: ${{ secrets.BINANCE_API_KEY }}
+          BINANCE_SECRET_KEY: ${{ secrets.BINANCE_SECRET_KEY }}
+          BINANCE_TESTNET: ${{ secrets.BINANCE_TESTNET }}
+          OANDA_API_TOKEN: ${{ secrets.OANDA_API_TOKEN }}
+          OANDA_ACCOUNT_ID: ${{ secrets.OANDA_ACCOUNT_ID }}
+          OANDA_ENVIRONMENT: ${{ secrets.OANDA_ENVIRONMENT }}
+          EXN_API_KEY: ${{ secrets.EXN_API_KEY }}
+          EXN_PRIVATE_KEY: ${{ secrets.EXN_PRIVATE_KEY }}
+          EXN_ACCOUNT_ID: ${{ secrets.EXN_ACCOUNT_ID }}
+          EXN_API_BASE_URL: ${{ secrets.EXN_API_BASE_URL }}
+          FOREX_PROVIDER: "exness"
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python bot_action.py
