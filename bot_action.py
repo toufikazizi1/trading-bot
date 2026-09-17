@@ -7,6 +7,7 @@
 """
 import os
 import sys
+import time
 from datetime import datetime, timezone
 
 MARKET = os.environ.get("BOT_MARKET", "crypto")          # stocks | crypto | forex
@@ -23,9 +24,9 @@ ALPACA_SECRET_KEY = os.environ.get("ALPACA_SECRET_KEY", "")
 ALPACA_BASE_URL = os.environ.get("ALPACA_BASE_URL", "https://paper-api.alpaca.markets")
 ALPACA_IS_PAPER = "paper" in ALPACA_BASE_URL
 
-BINANCE_API_KEY = os.environ.get("BINANCE_API_KEY", "")
-BINANCE_SECRET_KEY = os.environ.get("BINANCE_SECRET_KEY", "")
-BINANCE_TESTNET = os.environ.get("BINANCE_TESTNET", "true").lower() == "true"
+BYBIT_API_KEY = os.environ.get("BYBIT_API_KEY", "")
+BYBIT_SECRET_KEY = os.environ.get("BYBIT_SECRET_KEY", "")
+BYBIT_TESTNET = os.environ.get("BYBIT_TESTNET", "true").lower() == "true"
 
 OANDA_API_TOKEN = os.environ.get("OANDA_API_TOKEN", "")
 OANDA_ACCOUNT_ID = os.environ.get("OANDA_ACCOUNT_ID", "")
@@ -129,12 +130,12 @@ def get_closes():
 
     if MARKET == "crypto":
         import ccxt
-        exchange = ccxt.binance({
-            "apiKey": BINANCE_API_KEY,
-            "secret": BINANCE_SECRET_KEY,
+        exchange = ccxt.bybit({
+            "apiKey": BYBIT_API_KEY,
+            "secret": BYBIT_SECRET_KEY,
             "enableRateLimit": True,
         })
-        if BINANCE_TESTNET:
+        if BYBIT_TESTNET:
             exchange.set_sandbox_mode(True)
         ohlcv = exchange.fetch_ohlcv(SYMBOL.upper(), timeframe="1d", limit=60)
         return [c[4] for c in ohlcv]
@@ -220,11 +221,11 @@ def place_order(side):
 
     if MARKET == "crypto":
         import ccxt
-        exchange = ccxt.binance({
-            "apiKey": BINANCE_API_KEY, "secret": BINANCE_SECRET_KEY,
+        exchange = ccxt.bybit({
+            "apiKey": BYBIT_API_KEY, "secret": BYBIT_SECRET_KEY,
             "enableRateLimit": True,
         })
-        if BINANCE_TESTNET:
+        if BYBIT_TESTNET:
             exchange.set_sandbox_mode(True)
         order = exchange.create_order(symbol=SYMBOL.upper(), type="market", side=side, amount=QTY)
         return {"id": order.get("id"), "status": order.get("status")}
@@ -293,5 +294,5 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
-
+    main()        
+    
