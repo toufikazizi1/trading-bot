@@ -22,17 +22,11 @@ jobs:
         env:
           BOT_SYMBOL: "bitcoin"
           BOT_SYMBOL_LABEL: "BTC/USDT"
-          BOT_SHORT_WINDOW: "10"
-          BOT_LONG_WINDOW: "30"
-          BOT_RSI_PERIOD: "14"
-          BOT_RSI_OVERBOUGHT: "70"
-          BOT_RSI_OVERSOLD: "30"
-          BOT_SWING_LOOKBACK: "40"
+          BOT_LOOKBACK: "12"
+          BOT_TREND_THRESHOLD_PCT: "0.3"
           BOT_TP1_PCT: "0.5"
           BOT_TP2_PCT: "1.2"
           BOT_SL_PCT: "0.7"
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: python bot_action.py
-
-
