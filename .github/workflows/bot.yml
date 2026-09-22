@@ -20,25 +20,13 @@ jobs:
 
       - name: Run bot check
         env:
-          BOT_MARKET: "crypto"
-          BOT_SYMBOL: "BTC/USDT"
-          BOT_QTY: "0.001"
-          BOT_LIVE: "false"
-          BOT_USE_NEWS: "true"
-          ALPACA_API_KEY: ${{ secrets.ALPACA_API_KEY }}
-          ALPACA_SECRET_KEY: ${{ secrets.ALPACA_SECRET_KEY }}
-          ALPACA_BASE_URL: ${{ secrets.ALPACA_BASE_URL }}
-          BYBIT_API_KEY: ${{ secrets.BYBIT_API_KEY }}
-          BYBIT_SECRET_KEY: ${{ secrets.BYBIT_SECRET_KEY }}
-          BYBIT_TESTNET: ${{ secrets.BYBIT_TESTNET }}
-          OANDA_API_TOKEN: ${{ secrets.OANDA_API_TOKEN }}
-          OANDA_ACCOUNT_ID: ${{ secrets.OANDA_ACCOUNT_ID }}
-          OANDA_ENVIRONMENT: ${{ secrets.OANDA_ENVIRONMENT }}
-          EXN_API_KEY: ${{ secrets.EXN_API_KEY }}
-          EXN_PRIVATE_KEY: ${{ secrets.EXN_PRIVATE_KEY }}
-          EXN_ACCOUNT_ID: ${{ secrets.EXN_ACCOUNT_ID }}
-          EXN_API_BASE_URL: ${{ secrets.EXN_API_BASE_URL }}
-          FOREX_PROVIDER: "exness"
+          BOT_SYMBOL: "bitcoin"
+          BOT_SYMBOL_LABEL: "BTC/USDT"
+          BOT_SHORT_WINDOW: "10"
+          BOT_LONG_WINDOW: "30"
+          BOT_TP1_PCT: "0.5"
+          BOT_TP2_PCT: "1.2"
+          BOT_SL_PCT: "0.7"
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: python bot_action.py
