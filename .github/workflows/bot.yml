@@ -2,7 +2,7 @@ name: Trading Bot
 
 on:
   schedule:
-    - cron: "0 * * * *"
+    - cron: "*/15 * * * *"
   workflow_dispatch: {}
 
 jobs:
@@ -24,6 +24,10 @@ jobs:
           BOT_SYMBOL_LABEL: "BTC/USDT"
           BOT_SHORT_WINDOW: "10"
           BOT_LONG_WINDOW: "30"
+          BOT_RSI_PERIOD: "14"
+          BOT_RSI_OVERBOUGHT: "70"
+          BOT_RSI_OVERSOLD: "30"
+          BOT_SWING_LOOKBACK: "40"
           BOT_TP1_PCT: "0.5"
           BOT_TP2_PCT: "1.2"
           BOT_SL_PCT: "0.7"
