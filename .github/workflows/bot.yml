@@ -22,8 +22,7 @@ jobs:
         env:
           BOT_SYMBOL: "bitcoin"
           BOT_SYMBOL_LABEL: "BTC/USDT"
-          BOT_LOOKBACK: "12"
-          BOT_TREND_THRESHOLD_PCT: "0.3"
+          BOT_LOOKBACK: "24"
           BOT_TP1_PCT: "0.5"
           BOT_TP2_PCT: "1.2"
           BOT_SL_PCT: "0.7"
