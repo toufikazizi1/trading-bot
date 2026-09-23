@@ -1,7 +1,7 @@
 """
-بوت إشارات اتجاه السوق (Trend Signal Bot) — يرسل توصية عبر تيليجرام فقط،
-بدون تنفيذ أي صفقة فعلية. يقارن السعر الحالي بالسعر قبل فترة معينة:
-لو السوق صاعد بنسبة كافية يرسل إشارة شراء، لو نازل يرسل إشارة بيع.
+بوت إشارات اختراق (Breakout Signal Bot) — يرسل توصية عبر تيليجرام فقط،
+بدون تنفيذ أي صفقة فعلية. يحدد أعلى قمة وأقل قاع خلال فترة سابقة (Lookback)،
+ويرسل إشارة شراء لو السعر كسر أعلى قمة، أو إشارة بيع لو كسر أقل قاع.
 يجلب الأسعار من CoinGecko (مجاني، بدون مفتاح API).
 """
 import os
@@ -11,8 +11,7 @@ from datetime import datetime, timezone
 
 BOT_SYMBOL = os.environ.get("BOT_SYMBOL", "bitcoin")
 BOT_SYMBOL_LABEL = os.environ.get("BOT_SYMBOL_LABEL", "BTC/USDT")
-LOOKBACK = int(os.environ.get("BOT_LOOKBACK", "12"))          # عدد النقاط للمقارنة
-TREND_THRESHOLD_PCT = float(os.environ.get("BOT_TREND_THRESHOLD_PCT", "0.3"))
+LOOKBACK = int(os.environ.get("BOT_LOOKBACK", "24"))          # عدد النقاط لتحديد القمة/القاع
 TP1_PCT = float(os.environ.get("BOT_TP1_PCT", "0.5"))
 TP2_PCT = float(os.environ.get("BOT_TP2_PCT", "1.2"))
 SL_PCT = float(os.environ.get("BOT_SL_PCT", "0.7"))
@@ -51,20 +50,23 @@ def get_closes():
     return [p[1] for p in prices]
 
 
-def trend_signal(closes):
-    if len(closes) < LOOKBACK + 1:
-        return "hold"
+def breakout_signal(closes):
+    if len(closes) < LOOKBACK + 2:
+        return "hold", None, None
+
     current = closes[-1]
-    past = closes[-1 - LOOKBACK]
-    change_pct = ((current - past) / past) * 100
-    if change_pct >= TREND_THRESHOLD_PCT:
-        return "buy"
-    if change_pct <= -TREND_THRESHOLD_PCT:
-        return "sell"
-    return "hold"
+    window = closes[-1 - LOOKBACK:-1]
+    highest = max(window)
+    lowest = min(window)
+
+    if current > highest:
+        return "buy", highest, lowest
+    if current < lowest:
+        return "sell", highest, lowest
+    return "hold", highest, lowest
 
 
-def format_signal_card(signal, entry_price):
+def format_signal_card(signal, entry_price, highest, lowest):
     icon = "🟢⬆️" if signal == "buy" else "🔴⬇️"
     label = "شراء" if signal == "buy" else "بيع"
     if signal == "buy":
@@ -78,15 +80,17 @@ def format_signal_card(signal, entry_price):
 
     ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     return (
-        f"{icon} <b>إشارة {label}</b>\n"
+        f"{icon} <b>إشارة {label} (اختراق)</b>\n"
         f"الرمز: {BOT_SYMBOL_LABEL}\n"
         f"التاريخ: {ts}\n\n"
         f"نقطة الدخول: {entry_price:,.2f}\n"
+        f"أعلى قمة سابقة: {highest:,.2f}\n"
+        f"أقل قاع سابق: {lowest:,.2f}\n\n"
         f"TP1: {tp1:,.2f}\n"
         f"TP2: {tp2:,.2f}\n"
         f"SL: {sl:,.2f}\n\n"
-        f"⚠️ إشارة اتجاه السوق التلقائية — وليست نصيحة مالية. "
-        f"التنفيذ يدوي بقرارك، وقد تتكرر الإشارة طول استمرار الاتجاه."
+        f"⚠️ إشارة اختراق تلقائية مبنية على كسر أعلى قمة أو أقل قاع سابق — "
+        f"وليست نصيحة مالية. التنفيذ يدوي بقرارك."
     )
 
 
@@ -98,15 +102,15 @@ def main():
         notify(f"⚠️ فشل جلب الأسعار لـ {BOT_SYMBOL_LABEL}: {e}")
         sys.exit(1)
 
-    signal = trend_signal(closes)
-    log(f"اتجاه السوق: {signal}")
+    signal, highest, lowest = breakout_signal(closes)
+    log(f"إشارة الاختراق: {signal} (قمة={highest}, قاع={lowest})")
 
     if signal == "hold":
-        log("لا يوجد اتجاه واضح كافٍ — لا إشارة.")
+        log("لا يوجد اختراق جديد — لا إشارة.")
         return
 
     entry_price = closes[-1]
-    notify(format_signal_card(signal, entry_price))
+    notify(format_signal_card(signal, entry_price, highest, lowest))
 
 
 if __name__ == "__main__":
