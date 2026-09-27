@@ -20,12 +20,22 @@ jobs:
 
       - name: Run bot check
         env:
-          BOT_SYMBOL: "bitcoin"
-          BOT_SYMBOL_LABEL: "BTC/USDT"
+          BOT_SYMBOLS: "XBTUSD|BTC/USDT,PAXGUSD|GOLD (PAXG)"
+          BOT_INTERVAL: "15m"
+          BOT_HTF_INTERVAL: "1h"
           BOT_LOOKBACK: "24"
-          BOT_TP1_PCT: "0.5"
-          BOT_TP2_PCT: "1.2"
-          BOT_SL_PCT: "0.7"
+          BOT_CONFIRM_BARS: "2"
+          BOT_EMA_PERIOD: "200"
+          BOT_ATR_PERIOD: "14"
+          BOT_RSI_PERIOD: "14"
+          BOT_VOLUME_MULT: "1.2"
+          BOT_BODY_RATIO_MIN: "0.5"
+          BOT_ATR_SL_MULT: "1.5"
+          BOT_ATR_TP1_MULT: "1.5"
+          BOT_ATR_TP2_MULT: "3.0"
+          BOT_HOURLY_UPDATE_MINUTES: "60"
+          BOT_MAX_CONSECUTIVE_LOSSES: "3"
+          BOT_CIRCUIT_BREAKER_PAUSE_HOURS: "4"
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: python bot_action.py
