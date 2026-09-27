@@ -18,9 +18,10 @@ SL/TP يُحسبان ديناميكياً بواسطة ATR بدل نسبة ثا�
 ⚠️ هذا البوت لا يضمن نجاح أي صفقة. كل ما سبق يقلل نسبة الإشارات
 الخاطئة فقط، ولا يلغيها. التداول يحمل مخاطرة دائماً.
 
-مصدر البيانات: CryptoCompare API العام (لا يحتاج مفتاح API، ولا يحظر أي
-منطقة جغرافية — بعكس Binance الذي يحظر الوصول من نطاقات IP الأمريكية
-التي تشتغل منها سيرفرات GitHub Actions الافتراضية).
+مصدر البيانات: Kraken Public API (لا يحتاج مفتاح API، ولا يحظر أي
+نطاق جغرافي — بعكس Binance/Bybit اللي يحظرو IPs أمريكية اللي تشتغل
+منها سيرفرات GitHub Actions الافتراضية، وبعكس CryptoCompare اللي
+سكرات خدمتها المجانية).
 """
 import os
 import sys
@@ -31,9 +32,10 @@ from datetime import datetime, timezone
 # ------------------------------------------------------------------
 # الإعدادات (عبر متغيرات البيئة، مع قيم افتراضية معقولة)
 # ------------------------------------------------------------------
-# صيغة كل رمز: FSYM|LABEL  — عدة رموز مفصولة بفاصلة (FSYM = رمز العملة بـ CryptoCompare)
+# صيغة كل رمز: PAIR|LABEL — عدة رموز مفصولة بفاصلة
+# PAIR = رمز الزوج بصيغة Kraken (مثال: XBTUSD لبتكوين، PAXGUSD للذهب)
 BOT_SYMBOLS = os.environ.get(
-    "BOT_SYMBOLS", "BTC|BTC/USDT,PAXG|GOLD (PAXG)"
+    "BOT_SYMBOLS", "XBTUSD|BTC/USDT,PAXGUSD|GOLD (PAXG)"
 )
 
 INTERVAL = os.environ.get("BOT_INTERVAL", "15m")          # الفريم الأساسي
@@ -56,8 +58,13 @@ TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
 
 STATE_FILE = "state.json"
-CC_HISTOMINUTE_URL = "https://min-api.cryptocompare.com/data/v2/histominute"
-CC_HISTOHOUR_URL = "https://min-api.cryptocompare.com/data/v2/histohour"
+KRAKEN_OHLC_URL = "https://api.kraken.com/0/public/OHLC"
+
+# تحويل الفريم إلى عدد الدقائق اللي يفهمها Kraken
+KRAKEN_INTERVAL_MINUTES = {
+    "1m": 1, "5m": 5, "15m": 15, "30m": 30,
+    "1h": 60, "4h": 240, "1d": 1440,
+}
 
 
 # ------------------------------------------------------------------
@@ -113,45 +120,45 @@ def parse_symbols():
 
 
 # ------------------------------------------------------------------
-# جلب البيانات من CryptoCompare
+# جلب البيانات من Kraken
 # ------------------------------------------------------------------
-def _parse_cc_response(raw):
-    data = raw.get("Data", {}).get("Data", [])
-    candles = []
-    for d in data:
-        candles.append({
-            "open_time": d["time"],
-            "open": float(d["open"]),
-            "high": float(d["high"]),
-            "low": float(d["low"]),
-            "close": float(d["close"]),
-            # volumefrom = حجم التداول بوحدة العملة نفسها (BTC مثلاً)
-            "volume": float(d.get("volumefrom", 0)),
-        })
-    return candles
-
-
-def get_klines(fsym, interval, limit=300):
+def get_klines(pair, interval, limit=300):
     """
     يرجع قائمة شموع: كل شمعة dict فيها open, high, low, close, volume.
+    pair: رمز الزوج بصيغة Kraken (مثال: XBTUSD).
     interval: "15m" أو "1h" (الفترتان المستخدمتان بهذا البوت فقط).
     """
-    if interval.endswith("m"):
-        aggregate = int(interval[:-1])
-        url = CC_HISTOMINUTE_URL
-    elif interval.endswith("h"):
-        aggregate = int(interval[:-1])
-        url = CC_HISTOHOUR_URL
-    else:
+    minutes = KRAKEN_INTERVAL_MINUTES.get(interval)
+    if minutes is None:
         raise ValueError(f"فترة زمنية غير مدعومة: {interval}")
 
-    params = {"fsym": fsym, "tsym": "USD", "limit": limit, "aggregate": aggregate}
-    resp = requests.get(url, params=params, timeout=15)
+    params = {"pair": pair, "interval": minutes}
+    resp = requests.get(KRAKEN_OHLC_URL, params=params, timeout=15)
     resp.raise_for_status()
     raw = resp.json()
-    if raw.get("Response") == "Error":
-        raise RuntimeError(raw.get("Message", "خطأ غير معروف من CryptoCompare"))
-    return _parse_cc_response(raw)
+
+    if raw.get("error"):
+        raise RuntimeError("; ".join(raw["error"]) or "خطأ غير معروف من Kraken")
+
+    result = raw.get("result", {})
+    # النتيجة تجي تحت مفتاح باسم الزوج الداخلي متاع Kraken (ماشي بالضرورة
+    # نفس النص اللي بعثناه)، فنلقاو أول مفتاح غير "last"
+    ohlc_key = next((k for k in result if k != "last"), None)
+    if not ohlc_key:
+        raise RuntimeError(f"لا توجد بيانات لهذا الزوج: {pair}")
+
+    candles = []
+    for row in result[ohlc_key]:
+        candles.append({
+            "open_time": int(row[0]),
+            "open": float(row[1]),
+            "high": float(row[2]),
+            "low": float(row[3]),
+            "close": float(row[4]),
+            "volume": float(row[6]),
+        })
+
+    return candles[-limit:] if limit else candles
 
 
 # ------------------------------------------------------------------
@@ -621,5 +628,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-    
