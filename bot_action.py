@@ -384,6 +384,50 @@ def evaluate_zlr_signal(closes, candles, ema):
     return trend_direction, "نمط ارتداد الخط الصفري (MACD ZLR) مؤكد باتجاه الترند العام"
 
 
+def evaluate_pullback_signal(closes, candles, ema, atr):
+    """
+    مصدر إشارة ثالث (Pullback): يُستخدم كي يكون RSI متطرف (مباع/مشترى بزيادة)
+    فيمنع الاختراق و ZLR. بدل ما يبقى ينتظر، يستنى ارتداد لـ EMA20
+    (أو RSI يرجع لمنطقة 40-60) ثم يدخل مع الاتجاه العام (EMA200)
+    بشرط شمعة تأكيد في اتجاه الصفقة.
+    """
+    if len(closes) < 40:
+        return None, None
+
+    trend_direction = "buy" if closes[-1] > ema else "sell"
+    ema20 = calc_ema(closes, 20)
+    rsi_now = calc_rsi(closes, RSI_PERIOD)
+    last = candles[-1]
+
+    # RSI خلال آخر 12 شمعة — لازم كان متطرف في اتجاه الترند
+    rsis = [calc_rsi(closes[:len(closes) - k], RSI_PERIOD) for k in range(0, 12)]
+
+    if trend_direction == "sell":
+        was_extreme = min(rsis) <= 30
+        near_ema20 = closes[-1] >= ema20 - 0.25 * atr
+        rsi_recovered = 40 <= rsi_now <= 60
+        candle_ok = last["close"] < last["open"]
+    else:
+        was_extreme = max(rsis) >= 70
+        near_ema20 = closes[-1] <= ema20 + 0.25 * atr
+        rsi_recovered = 40 <= rsi_now <= 60
+        candle_ok = last["close"] > last["open"]
+
+    if not was_extreme:
+        return None, None
+    if not (near_ema20 or rsi_recovered):
+        return None, "Pullback: ننتظر ارتداد لـ EMA20 أو رجوع RSI لمنطقة 40-60"
+    # السعر لازم يبقى في الجهة الصحيحة من EMA200
+    if not candle_ok:
+        return None, "Pullback: ننتظر شمعة تأكيد في اتجاه الترند"
+    if trend_direction == "sell" and rsi_now <= 30:
+        return None, None
+    if trend_direction == "buy" and rsi_now >= 70:
+        return None, None
+
+    return trend_direction, "Pullback بعد تطرف RSI — دخول مع الترند العام"
+
+
 # ------------------------------------------------------------------
 # قاطع الدائرة (Circuit Breaker) — يتحقق من نتائج آخر إشارة قبل يرسل جديدة
 # ------------------------------------------------------------------
@@ -448,6 +492,9 @@ def format_strong_signal(label, direction, entry, sl, tp1, tp2, atr, rsi, corr,
     if source == "zlr":
         title = "استمرار اتجاه — MACD Zero Line Reversal"
         filters_line = "الفلاتر المجتازة: اتجاه EMA200 ✅ | RSI ✅ | حجم تداول ✅ | جسم شمعة قوي ✅"
+    elif source == "pullback":
+        title = "ارتداد مع الترند (Pullback)"
+        filters_line = "الفلاتر المجتازة: اتجاه EMA200 ✅ | RSI متطرف ثم ارتد ✅ | قرب EMA20 ✅ | شمعة تأكيد ✅"
     else:
         title = "اختراق مؤكّد بعدة فلاتر"
         filters_line = (
@@ -592,6 +639,16 @@ def process_symbol(symbol, label, state, other_closes=None):
         return
     if zlr_reason:
         log(f"{label}: لا ZLR — {zlr_reason}")
+
+    # المصدر الثالث: Pullback (يعالج حالة RSI المتطرف اللي تمنع الاختراق و ZLR)
+    recent = minutes_since((symbol_state.get("open_signal") or {}).get("opened_at"))
+    if recent is None or recent >= 240:
+        pb_direction, pb_reason = evaluate_pullback_signal(closes, candles, ema, atr)
+        if pb_direction is not None:
+            send_signal(pb_direction, source="pullback")
+            return
+        if pb_reason:
+            log(f"{label}: لا Pullback — {pb_reason}")
 
     elapsed = minutes_since(symbol_state.get("last_sent"))
     if elapsed is None or elapsed >= HOURLY_UPDATE_MINUTES:
