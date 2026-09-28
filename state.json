@@ -1,8 +1,15 @@
 {
   "XBTUSD": {
     "label": "BTC/USDT",
-    "last_sent": "2026-09-28T11:50:10.167773+00:00",
-    "open_signal": null,
+    "last_sent": "2026-09-28T12:15:11.127855+00:00",
+    "open_signal": {
+      "direction": "sell",
+      "entry": 83330.3,
+      "sl": 83613.85357142857,
+      "tp1": 83046.74642857144,
+      "tp2": 82763.19285714286,
+      "opened_at": "2026-09-28T12:15:11.127838+00:00"
+    },
     "consecutive_losses": 1
   },
   "PAXGUSD": {
