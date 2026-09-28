@@ -50,6 +50,8 @@ BODY_RATIO_MIN = float(os.environ.get("BOT_BODY_RATIO_MIN", "0.5"))
 ATR_SL_MULT = float(os.environ.get("BOT_ATR_SL_MULT", "1.5"))
 ATR_TP1_MULT = float(os.environ.get("BOT_ATR_TP1_MULT", "1.5"))
 ATR_TP2_MULT = float(os.environ.get("BOT_ATR_TP2_MULT", "3.0"))
+ALLOW_COUNTER_TREND = os.environ.get("BOT_ALLOW_COUNTER_TREND", "1") == "1"
+EARLY_REVERSAL = os.environ.get("BOT_EARLY_REVERSAL", "1") == "1"
 HOURLY_UPDATE_MINUTES = int(os.environ.get("BOT_HOURLY_UPDATE_MINUTES", "60"))
 MAX_CONSECUTIVE_LOSSES = int(os.environ.get("BOT_MAX_CONSECUTIVE_LOSSES", "3"))
 CIRCUIT_BREAKER_PAUSE_HOURS = float(os.environ.get("BOT_CIRCUIT_BREAKER_PAUSE_HOURS", "4"))
@@ -428,6 +430,79 @@ def evaluate_pullback_signal(closes, candles, ema, atr):
     return trend_direction, "Pullback بعد تطرف RSI — دخول مع الترند العام"
 
 
+def evaluate_reversal_signal(closes, candles, ema, atr):
+    """
+    إشارة عكس الترند (مخاطرة أعلى): كي يكون السعر تحت EMA200 ويطلع من منطقة
+    مباع بزيادة، تعطي شراء (والعكس). شروط صارمة: RSI كان متطرف ثم ارتد،
+    السعر تجاوز EMA20، وشمعة تأكيد قوية في اتجاه الصفقة.
+    """
+    if not ALLOW_COUNTER_TREND or len(closes) < 40:
+        return None, None
+
+    trend_direction = "buy" if closes[-1] > ema else "sell"
+    direction = "sell" if trend_direction == "buy" else "buy"
+
+    ema20 = calc_ema(closes, 20)
+    rsi_now = calc_rsi(closes, RSI_PERIOD)
+    rsi_prev = calc_rsi(closes[:-1], RSI_PERIOD)
+    rsis = [calc_rsi(closes[:len(closes) - k], RSI_PERIOD) for k in range(0, 12)]
+    last = candles[-1]
+
+    if direction == "buy":
+        if min(rsis) > 30:
+            return None, None
+        if not (35 <= rsi_now <= 65 and rsi_now > rsi_prev):
+            return None, "Reversal شراء: ننتظر RSI يرتد فوق 35"
+        if closes[-1] <= ema20:
+            return None, "Reversal شراء: ننتظر السعر يتجاوز EMA20"
+    else:
+        if max(rsis) < 70:
+            return None, None
+        if not (35 <= rsi_now <= 65 and rsi_now < rsi_prev):
+            return None, "Reversal بيع: ننتظر RSI ينزل تحت 65"
+        if closes[-1] >= ema20:
+            return None, "Reversal بيع: ننتظر السعر يكسر EMA20"
+
+    if not check_body_wick(last, direction):
+        return None, "Reversal: شمعة التأكيد ضعيفة"
+
+    return direction, "ارتداد عكس الترند بعد تطرف RSI"
+
+
+def evaluate_early_reversal(closes, candles, atr, symbol=None):
+    """
+    إشارة مبكرة: أول شمعة انعكاس بعد قاع (أو قمة) جديد — قبل ما يفوت الوقت.
+    شراء: السعر عمل أدنى قاع في آخر 24 شمعة، الشمعة السابقة حمراء،
+    الشمعة الحالية خضراء، RSI منخفض (<40) وبدأ يرتفع.
+    بيع: العكس. SL يكون تحت القاع (أو فوق القمة) مباشرة.
+    مخاطرة عالية: تجي إشارات كاذبة أكثر من الطرق الأخرى.
+    """
+    if not EARLY_REVERSAL or len(candles) < 30:
+        return None, None, None
+
+    last, prev = candles[-1], candles[-2]
+    window = candles[-27:-3]
+    recent3 = candles[-3:]
+    rsi_now = calc_rsi(closes, RSI_PERIOD)
+    rsi_prev = calc_rsi(closes[:-1], RSI_PERIOD)
+
+    rsis5 = [calc_rsi(closes[:len(closes) - k], RSI_PERIOD) for k in range(0, 5)]
+    new_low = min(c["low"] for c in recent3) <= min(c["low"] for c in window)
+    new_high = max(c["high"] for c in recent3) >= max(c["high"] for c in window)
+
+    if new_low and prev["close"] < prev["open"] and last["close"] > last["open"] \
+            and min(rsis5) <= 30 and rsi_now > rsi_prev and rsi_now < 50:
+        swing = min(c["low"] for c in recent3)
+        return "buy", "أول شمعة انعكاس صاعدة بعد قاع جديد", swing
+
+    if new_high and prev["close"] > prev["open"] and last["close"] < last["open"] \
+            and rsi_now > 30 and rsi_now < rsi_prev:
+        swing = max(c["high"] for c in recent3)
+        return "sell", "أول شمعة انعكاس هابطة بعد قمة جديدة", swing
+
+    return None, None, None
+
+
 # ------------------------------------------------------------------
 # قاطع الدائرة (Circuit Breaker) — يتحقق من نتائج آخر إشارة قبل يرسل جديدة
 # ------------------------------------------------------------------
@@ -492,6 +567,12 @@ def format_strong_signal(label, direction, entry, sl, tp1, tp2, atr, rsi, corr,
     if source == "zlr":
         title = "استمرار اتجاه — MACD Zero Line Reversal"
         filters_line = "الفلاتر المجتازة: اتجاه EMA200 ✅ | RSI ✅ | حجم تداول ✅ | جسم شمعة قوي ✅"
+    elif source == "early":
+        title = "انعكاس مبكر ⚡ (مخاطرة عالية)"
+        filters_line = "الشروط (فريم 15 دقيقة): قاع/قمة جديدة ✅ | أول شمعة انعكاس ✅ | RSI 30 ✅ | ⚠️ إشارة مبكرة — SL تحت القاع/فوق القمة، استعمل حجم صغير"
+    elif source == "reversal":
+        title = "ارتداد عكس الترند ⚠️ (مخاطرة أعلى)"
+        filters_line = "الشروط: RSI كان متطرف ثم ارتد ✅ | تجاوز EMA20 ✅ | شمعة تأكيد قوية ✅ | ⚠️ عكس اتجاه EMA200 — استعمل حجم صفقة أصغر"
     elif source == "pullback":
         title = "ارتداد مع الترند (Pullback)"
         filters_line = "الفلاتر المجتازة: اتجاه EMA200 ✅ | RSI متطرف ثم ارتد ✅ | قرب EMA20 ✅ | شمعة تأكيد ✅"
@@ -602,15 +683,23 @@ def process_symbol(symbol, label, state, other_closes=None):
     else:
         signal_ok = True
 
-    def send_signal(direction, source):
+    def send_signal(direction, source, swing=None):
         if direction == "buy":
             sl = current_price - atr * ATR_SL_MULT
             tp1 = current_price + atr * ATR_TP1_MULT
             tp2 = current_price + atr * ATR_TP2_MULT
+            if swing is not None:
+                sl = swing - 0.2 * atr
+                sl = min(sl, current_price - 0.5 * atr)
+                sl = max(sl, current_price - 2 * atr)
         else:
             sl = current_price + atr * ATR_SL_MULT
             tp1 = current_price - atr * ATR_TP1_MULT
             tp2 = current_price - atr * ATR_TP2_MULT
+            if swing is not None:
+                sl = swing + 0.2 * atr
+                sl = max(sl, current_price + 0.5 * atr)
+                sl = min(sl, current_price + 2 * atr)
 
         corr = None
         if other_closes is not None:
@@ -643,12 +732,26 @@ def process_symbol(symbol, label, state, other_closes=None):
     # المصدر الثالث: Pullback (يعالج حالة RSI المتطرف اللي تمنع الاختراق و ZLR)
     recent = minutes_since((symbol_state.get("open_signal") or {}).get("opened_at"))
     if recent is None or recent >= 240:
+        ev_direction, ev_reason, ev_swing = evaluate_early_reversal(closes, candles, atr, symbol)
+        if ev_direction is not None:
+            send_signal(ev_direction, source="early", swing=ev_swing)
+            return
+        if ev_reason:
+            log(f"{label}: لا انعكاس مبكر — {ev_reason}")
+
         pb_direction, pb_reason = evaluate_pullback_signal(closes, candles, ema, atr)
         if pb_direction is not None:
             send_signal(pb_direction, source="pullback")
             return
         if pb_reason:
             log(f"{label}: لا Pullback — {pb_reason}")
+
+        rv_direction, rv_reason = evaluate_reversal_signal(closes, candles, ema, atr)
+        if rv_direction is not None:
+            send_signal(rv_direction, source="reversal")
+            return
+        if rv_reason:
+            log(f"{label}: لا Reversal — {rv_reason}")
 
     elapsed = minutes_since(symbol_state.get("last_sent"))
     if elapsed is None or elapsed >= HOURLY_UPDATE_MINUTES:
