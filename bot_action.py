@@ -52,6 +52,9 @@ ATR_TP1_MULT = float(os.environ.get("BOT_ATR_TP1_MULT", "1.5"))
 ATR_TP2_MULT = float(os.environ.get("BOT_ATR_TP2_MULT", "3.0"))
 ALLOW_COUNTER_TREND = os.environ.get("BOT_ALLOW_COUNTER_TREND", "1") == "1"
 EARLY_REVERSAL = os.environ.get("BOT_EARLY_REVERSAL", "1") == "1"
+SR_SIGNAL = os.environ.get("BOT_SR_SIGNAL", "1") == "1"
+SR_PIVOT_LENGTH = int(os.environ.get("BOT_SR_PIVOT_LENGTH", "5"))
+SR_TOLERANCE_ATR = float(os.environ.get("BOT_SR_TOLERANCE_ATR", "0.15"))
 HOURLY_UPDATE_MINUTES = int(os.environ.get("BOT_HOURLY_UPDATE_MINUTES", "60"))
 MAX_CONSECUTIVE_LOSSES = int(os.environ.get("BOT_MAX_CONSECUTIVE_LOSSES", "3"))
 CIRCUIT_BREAKER_PAUSE_HOURS = float(os.environ.get("BOT_CIRCUIT_BREAKER_PAUSE_HOURS", "4"))
@@ -481,6 +484,36 @@ def classify_market_structure(candles, left=3, right=3):
     return result
 
 
+def evaluate_support_resistance_signal(candles, atr):
+    """
+    مصدر إشارة مستقل — فلتر واحد بس (بلا أي فلتر تأكيد إضافي):
+    كي يوصل السعر لآخر مستوى مقاومة (قمة محلية) → بيع.
+    كي يوصل السعر لآخر مستوى دعم (قاع محلي) → شراء.
+    مبني على فكرة "Breakout Support & Resistance" لكن بالعكس:
+    يتاجر الارتداد من المستوى، ماشي الاختراق.
+    """
+    if not SR_SIGNAL or len(candles) < SR_PIVOT_LENGTH * 2 + 5:
+        return None, None
+
+    pivots = find_pivots(candles, left=SR_PIVOT_LENGTH, right=SR_PIVOT_LENGTH)
+    highs = [p for p in pivots if p[2] == "high"]
+    lows = [p for p in pivots if p[2] == "low"]
+    if not highs or not lows:
+        return None, None
+
+    resistance = highs[-1][1]
+    support = lows[-1][1]
+    price = candles[-1]["close"]
+    tol = SR_TOLERANCE_ATR * atr
+
+    if abs(price - resistance) <= tol:
+        return "sell", f"السعر عند مستوى المقاومة ({resistance:,.2f})"
+    if abs(price - support) <= tol:
+        return "buy", f"السعر عند مستوى الدعم ({support:,.2f})"
+
+    return None, None
+
+
 def evaluate_reversal_signal(closes, candles, ema, atr, symbol=None):
     """
     إشارة عكس الترند (مخاطرة أعلى): كي يكون السعر تحت EMA200 ويطلع من منطقة
@@ -648,6 +681,14 @@ def format_strong_signal(label, direction, entry, sl, tp1, tp2, atr, rsi, corr,
     if source == "zlr":
         title = "استمرار اتجاه — MACD Zero Line Reversal"
         filters_line = "الفلاتر المجتازة: اتجاه EMA200 ✅ | RSI ✅ | حجم تداول ✅ | جسم شمعة قوي ✅"
+    elif source == "sr":
+        if direction == "sell":
+            icon = "🔻"
+            title = "Resistance بيع 🔻"
+        else:
+            icon = "⬆️"
+            title = "Support شراء ⬆️"
+        filters_line = "الفلتر: السعر عند مستوى دعم/مقاومة محلي (فريم 15 دقيقة) — بلا فلاتر تأكيد إضافية ⚠️"
     elif source == "early":
         title = "انعكاس مبكر ⚡ (مخاطرة عالية)"
         filters_line = "الشروط (فريم 15 دقيقة): قاع/قمة جديدة ✅ | أول شمعة انعكاس ✅ | RSI 30 ✅ | MACD ✅ | حجم ✅ | فريم أعلى ✅ | بنية السوق ✅ | ⚠️ إشارة مبكرة — SL تحت القاع/فوق القمة، استعمل حجم صغير"
@@ -809,6 +850,16 @@ def process_symbol(symbol, label, state, other_closes=None):
         return
     if zlr_reason:
         log(f"{label}: لا ZLR — {zlr_reason}")
+
+    # مصدر مستقل: الدعم/المقاومة (فلتر واحد فقط، بلا أي تأكيد إضافي)
+    sr_recent = minutes_since((symbol_state.get("open_signal") or {}).get("opened_at"))
+    if sr_recent is None or sr_recent >= 30:
+        sr_direction, sr_reason = evaluate_support_resistance_signal(candles, atr)
+        if sr_direction is not None:
+            send_signal(sr_direction, source="sr")
+            return
+        if sr_reason:
+            log(f"{label}: لا S/R — {sr_reason}")
 
     # المصدر الثالث: Pullback (يعالج حالة RSI المتطرف اللي تمنع الاختراق و ZLR)
     recent = minutes_since((symbol_state.get("open_signal") or {}).get("opened_at"))
