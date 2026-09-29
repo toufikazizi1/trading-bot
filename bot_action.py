@@ -446,6 +446,41 @@ def check_macd_momentum(closes, direction):
     return hist[-1] < hist[-2] or hist[-1] < hist[-3]
 
 
+def find_pivots(candles, left=3, right=3):
+    """
+    يكتشف القمم والقيعان المحلية (Pivots) — كل قمة/قاع لازم يكون أعلى/أدنى
+    من "left" شمعة قبلو و"right" شمعة بعدو. أساس تحليل بنية السوق (ZigZag).
+    """
+    pivots = []
+    n = len(candles)
+    for i in range(left, n - right):
+        window = candles[i - left:i + right + 1]
+        high_i, low_i = candles[i]["high"], candles[i]["low"]
+        if high_i == max(c["high"] for c in window):
+            pivots.append((i, high_i, "high"))
+        if low_i == min(c["low"] for c in window):
+            pivots.append((i, low_i, "low"))
+    return pivots
+
+
+def classify_market_structure(candles, left=3, right=3):
+    """
+    يصنف آخر قمة وآخر قاع حسب بنية السوق:
+    HH (قمة أعلى) / LH (قمة أقل) — HL (قاع أعلى) / LL (قاع أقل).
+    يرجع dict: {"last_high": "HH"/"LH"/None, "last_low": "HL"/"LL"/None}
+    """
+    pivots = find_pivots(candles, left, right)
+    highs = [p for p in pivots if p[2] == "high"]
+    lows = [p for p in pivots if p[2] == "low"]
+
+    result = {"last_high": None, "last_low": None}
+    if len(highs) >= 2:
+        result["last_high"] = "HH" if highs[-1][1] > highs[-2][1] else "LH"
+    if len(lows) >= 2:
+        result["last_low"] = "HL" if lows[-1][1] > lows[-2][1] else "LL"
+    return result
+
+
 def evaluate_reversal_signal(closes, candles, ema, atr, symbol=None):
     """
     إشارة عكس الترند (مخاطرة أعلى): كي يكون السعر تحت EMA200 ويطلع من منطقة
@@ -488,7 +523,13 @@ def evaluate_reversal_signal(closes, candles, ema, atr, symbol=None):
     if symbol is not None and not check_higher_timeframe(symbol, direction):
         return None, "Reversal: الفريم الأعلى (1h) ما يدعمش الاتجاه"
 
-    return direction, "ارتداد عكس الترند بعد تطرف RSI (مؤكد بـ RSI+MACD+حجم+فريم أعلى)"
+    structure = classify_market_structure(candles)
+    if direction == "buy" and structure["last_low"] == "LL":
+        return None, "Reversal: بنية السوق ما زالت LL (قاع أقل) — الهبوط لسه قوي"
+    if direction == "sell" and structure["last_high"] == "HH":
+        return None, "Reversal: بنية السوق ما زالت HH (قمة أعلى) — الصعود لسه قوي"
+
+    return direction, "ارتداد عكس الترند بعد تطرف RSI (مؤكد بـ RSI+MACD+حجم+فريم أعلى+بنية السوق)"
 
 
 def evaluate_early_reversal(closes, candles, atr, symbol=None):
@@ -520,8 +561,11 @@ def evaluate_early_reversal(closes, candles, atr, symbol=None):
             return None, "انعكاس مبكر شراء: حجم التداول ضعيف", None
         if symbol is not None and not check_higher_timeframe(symbol, "buy"):
             return None, "انعكاس مبكر شراء: الفريم الأعلى ما يدعمش", None
+        structure = classify_market_structure(candles)
+        if structure["last_low"] == "LL":
+            return None, "انعكاس مبكر شراء: بنية السوق ما زالت LL — الهبوط لسه قوي", None
         swing = min(c["low"] for c in recent3)
-        return "buy", "أول شمعة انعكاس صاعدة بعد قاع جديد (مؤكد بـ MACD+حجم+فريم أعلى)", swing
+        return "buy", "أول شمعة انعكاس صاعدة بعد قاع جديد (مؤكد بـ MACD+حجم+فريم أعلى+بنية السوق)", swing
 
     if new_high and prev["close"] > prev["open"] and last["close"] < last["open"] \
             and rsi_now > 30 and rsi_now < rsi_prev:
@@ -531,8 +575,11 @@ def evaluate_early_reversal(closes, candles, atr, symbol=None):
             return None, "انعكاس مبكر بيع: حجم التداول ضعيف", None
         if symbol is not None and not check_higher_timeframe(symbol, "sell"):
             return None, "انعكاس مبكر بيع: الفريم الأعلى ما يدعمش", None
+        structure = classify_market_structure(candles)
+        if structure["last_high"] == "HH":
+            return None, "انعكاس مبكر بيع: بنية السوق ما زالت HH — الصعود لسه قوي", None
         swing = max(c["high"] for c in recent3)
-        return "sell", "أول شمعة انعكاس هابطة بعد قمة جديدة (مؤكد بـ MACD+حجم+فريم أعلى)", swing
+        return "sell", "أول شمعة انعكاس هابطة بعد قمة جديدة (مؤكد بـ MACD+حجم+فريم أعلى+بنية السوق)", swing
 
     return None, None, None
 
@@ -603,10 +650,10 @@ def format_strong_signal(label, direction, entry, sl, tp1, tp2, atr, rsi, corr,
         filters_line = "الفلاتر المجتازة: اتجاه EMA200 ✅ | RSI ✅ | حجم تداول ✅ | جسم شمعة قوي ✅"
     elif source == "early":
         title = "انعكاس مبكر ⚡ (مخاطرة عالية)"
-        filters_line = "الشروط (فريم 15 دقيقة): قاع/قمة جديدة ✅ | أول شمعة انعكاس ✅ | RSI 30 ✅ | MACD ✅ | حجم ✅ | فريم أعلى ✅ | ⚠️ إشارة مبكرة — SL تحت القاع/فوق القمة، استعمل حجم صغير"
+        filters_line = "الشروط (فريم 15 دقيقة): قاع/قمة جديدة ✅ | أول شمعة انعكاس ✅ | RSI 30 ✅ | MACD ✅ | حجم ✅ | فريم أعلى ✅ | بنية السوق ✅ | ⚠️ إشارة مبكرة — SL تحت القاع/فوق القمة، استعمل حجم صغير"
     elif source == "reversal":
         title = "ارتداد عكس الترند ⚠️ (مخاطرة أعلى)"
-        filters_line = "الشروط: RSI ارتد ✅ | MACD ✅ | حجم ✅ | فريم أعلى ✅ | تجاوز EMA20 ✅ | شمعة تأكيد ✅ | ⚠️ عكس اتجاه EMA200"
+        filters_line = "الشروط: RSI ارتد ✅ | MACD ✅ | حجم ✅ | فريم أعلى ✅ | بنية السوق (HH/HL/LH/LL) ✅ | تجاوز EMA20 ✅ | شمعة تأكيد ✅ | ⚠️ عكس اتجاه EMA200"
     elif source == "pullback":
         title = "ارتداد مع الترند (Pullback)"
         filters_line = "الفلاتر المجتازة: اتجاه EMA200 ✅ | RSI متطرف ثم ارتد ✅ | قرب EMA20 ✅ | شمعة تأكيد ✅"
