@@ -406,19 +406,22 @@ def evaluate_pullback_signal(closes, candles, ema, atr):
 
     if trend_direction == "sell":
         was_extreme = min(rsis) <= 30
-        near_ema20 = closes[-1] >= ema20 - 0.25 * atr
-        rsi_recovered = 40 <= rsi_now <= 60
+        # لازم السعر يكون قريب فعلاً من EMA20 (جهة صحيحة)، مش بعيد في قمة موجة
+        near_ema20 = ema20 - 0.4 * atr <= closes[-1] <= ema20 + 0.2 * atr
+        rsi_not_too_recovered = rsi_now <= 55  # يمنع الدخول كي RSI يكون طالع بزاف (قرب قمة)
         candle_ok = last["close"] < last["open"]
     else:
         was_extreme = max(rsis) >= 70
-        near_ema20 = closes[-1] <= ema20 + 0.25 * atr
-        rsi_recovered = 40 <= rsi_now <= 60
+        near_ema20 = ema20 - 0.2 * atr <= closes[-1] <= ema20 + 0.4 * atr
+        rsi_not_too_recovered = rsi_now >= 45  # يمنع الدخول كي RSI يكون نازل بزاف (قرب قاع)
         candle_ok = last["close"] > last["open"]
 
     if not was_extreme:
         return None, None
-    if not (near_ema20 or rsi_recovered):
-        return None, "Pullback: ننتظر ارتداد لـ EMA20 أو رجوع RSI لمنطقة 40-60"
+    if not near_ema20:
+        return None, "Pullback: ننتظر السعر يرجع أقرب فعلاً لـ EMA20"
+    if not rsi_not_too_recovered:
+        return None, "Pullback: RSI ابتعد بزاف عن منطقة الارتداد، فات وقت الدخول"
     # السعر لازم يبقى في الجهة الصحيحة من EMA200
     if not candle_ok:
         return None, "Pullback: ننتظر شمعة تأكيد في اتجاه الترند"
