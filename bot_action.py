@@ -316,7 +316,7 @@ def check_body_wick(candle, direction):
     return body_ratio >= BODY_RATIO_MIN
 
 
-def check_volume(candles):
+def check_volume(candles, mult=None):
     if len(candles) < LOOKBACK + 1:
         return True  # بيانات غير كافية، لا نمنع الإشارة بسبب هذا وحده
     volumes = [c["volume"] for c in candles[-1 - LOOKBACK:-1]]
@@ -324,7 +324,7 @@ def check_volume(candles):
     current_volume = candles[-1]["volume"]
     if avg_volume == 0:
         return True
-    return current_volume >= avg_volume * VOLUME_MULT
+    return current_volume >= avg_volume * (mult if mult is not None else VOLUME_MULT)
 
 
 def check_higher_timeframe(symbol, direction):
@@ -430,7 +430,20 @@ def evaluate_pullback_signal(closes, candles, ema, atr):
     return trend_direction, "Pullback بعد تطرف RSI — دخول مع الترند العام"
 
 
-def evaluate_reversal_signal(closes, candles, ema, atr):
+def check_macd_momentum(closes, direction):
+    """MACD لازم يبدا يرتد في نفس اتجاه الإشارة (الهيستوغرام يتحسن مقارنة بآخر 3 شموع)."""
+    macd_line, signal_line = calc_macd_series(closes)
+    if not macd_line or not signal_line or len(macd_line) < 4:
+        return True  # بيانات غير كافية، لا نمنع الإشارة بسبب هذا وحده
+    hist = [m - s for m, s in zip(macd_line[-len(signal_line):], signal_line)]
+    if len(hist) < 3:
+        return True
+    if direction == "buy":
+        return hist[-1] > hist[-2] or hist[-1] > hist[-3]
+    return hist[-1] < hist[-2] or hist[-1] < hist[-3]
+
+
+def evaluate_reversal_signal(closes, candles, ema, atr, symbol=None):
     """
     إشارة عكس الترند (مخاطرة أعلى): كي يكون السعر تحت EMA200 ويطلع من منطقة
     مباع بزيادة، تعطي شراء (والعكس). شروط صارمة: RSI كان متطرف ثم ارتد،
@@ -465,8 +478,14 @@ def evaluate_reversal_signal(closes, candles, ema, atr):
 
     if not check_body_wick(last, direction):
         return None, "Reversal: شمعة التأكيد ضعيفة"
+    if not check_macd_momentum(closes, direction):
+        return None, "Reversal: MACD ما يدعمش الارتداد بعد"
+    if not check_volume(candles, mult=1.0):
+        return None, "Reversal: حجم التداول ضعيف"
+    if symbol is not None and not check_higher_timeframe(symbol, direction):
+        return None, "Reversal: الفريم الأعلى (1h) ما يدعمش الاتجاه"
 
-    return direction, "ارتداد عكس الترند بعد تطرف RSI"
+    return direction, "ارتداد عكس الترند بعد تطرف RSI (مؤكد بـ RSI+MACD+حجم+فريم أعلى)"
 
 
 def evaluate_early_reversal(closes, candles, atr, symbol=None):
@@ -492,13 +511,25 @@ def evaluate_early_reversal(closes, candles, atr, symbol=None):
 
     if new_low and prev["close"] < prev["open"] and last["close"] > last["open"] \
             and min(rsis5) <= 30 and rsi_now > rsi_prev and rsi_now < 50:
+        if not check_macd_momentum(closes, "buy"):
+            return None, "انعكاس مبكر شراء: MACD ما يدعمش بعد", None
+        if not check_volume(candles, mult=1.0):
+            return None, "انعكاس مبكر شراء: حجم التداول ضعيف", None
+        if symbol is not None and not check_higher_timeframe(symbol, "buy"):
+            return None, "انعكاس مبكر شراء: الفريم الأعلى ما يدعمش", None
         swing = min(c["low"] for c in recent3)
-        return "buy", "أول شمعة انعكاس صاعدة بعد قاع جديد", swing
+        return "buy", "أول شمعة انعكاس صاعدة بعد قاع جديد (مؤكد بـ MACD+حجم+فريم أعلى)", swing
 
     if new_high and prev["close"] > prev["open"] and last["close"] < last["open"] \
             and rsi_now > 30 and rsi_now < rsi_prev:
+        if not check_macd_momentum(closes, "sell"):
+            return None, "انعكاس مبكر بيع: MACD ما يدعمش بعد", None
+        if not check_volume(candles, mult=1.0):
+            return None, "انعكاس مبكر بيع: حجم التداول ضعيف", None
+        if symbol is not None and not check_higher_timeframe(symbol, "sell"):
+            return None, "انعكاس مبكر بيع: الفريم الأعلى ما يدعمش", None
         swing = max(c["high"] for c in recent3)
-        return "sell", "أول شمعة انعكاس هابطة بعد قمة جديدة", swing
+        return "sell", "أول شمعة انعكاس هابطة بعد قمة جديدة (مؤكد بـ MACD+حجم+فريم أعلى)", swing
 
     return None, None, None
 
@@ -569,10 +600,10 @@ def format_strong_signal(label, direction, entry, sl, tp1, tp2, atr, rsi, corr,
         filters_line = "الفلاتر المجتازة: اتجاه EMA200 ✅ | RSI ✅ | حجم تداول ✅ | جسم شمعة قوي ✅"
     elif source == "early":
         title = "انعكاس مبكر ⚡ (مخاطرة عالية)"
-        filters_line = "الشروط (فريم 15 دقيقة): قاع/قمة جديدة ✅ | أول شمعة انعكاس ✅ | RSI 30 ✅ | ⚠️ إشارة مبكرة — SL تحت القاع/فوق القمة، استعمل حجم صغير"
+        filters_line = "الشروط (فريم 15 دقيقة): قاع/قمة جديدة ✅ | أول شمعة انعكاس ✅ | RSI 30 ✅ | MACD ✅ | حجم ✅ | فريم أعلى ✅ | ⚠️ إشارة مبكرة — SL تحت القاع/فوق القمة، استعمل حجم صغير"
     elif source == "reversal":
         title = "ارتداد عكس الترند ⚠️ (مخاطرة أعلى)"
-        filters_line = "الشروط: RSI كان متطرف ثم ارتد ✅ | تجاوز EMA20 ✅ | شمعة تأكيد قوية ✅ | ⚠️ عكس اتجاه EMA200 — استعمل حجم صفقة أصغر"
+        filters_line = "الشروط: RSI ارتد ✅ | MACD ✅ | حجم ✅ | فريم أعلى ✅ | تجاوز EMA20 ✅ | شمعة تأكيد ✅ | ⚠️ عكس اتجاه EMA200"
     elif source == "pullback":
         title = "ارتداد مع الترند (Pullback)"
         filters_line = "الفلاتر المجتازة: اتجاه EMA200 ✅ | RSI متطرف ثم ارتد ✅ | قرب EMA20 ✅ | شمعة تأكيد ✅"
@@ -731,7 +762,7 @@ def process_symbol(symbol, label, state, other_closes=None):
 
     # المصدر الثالث: Pullback (يعالج حالة RSI المتطرف اللي تمنع الاختراق و ZLR)
     recent = minutes_since((symbol_state.get("open_signal") or {}).get("opened_at"))
-    if recent is None or recent >= 240:
+    if recent is None or recent >= 90:
         ev_direction, ev_reason, ev_swing = evaluate_early_reversal(closes, candles, atr, symbol)
         if ev_direction is not None:
             send_signal(ev_direction, source="early", swing=ev_swing)
@@ -746,7 +777,7 @@ def process_symbol(symbol, label, state, other_closes=None):
         if pb_reason:
             log(f"{label}: لا Pullback — {pb_reason}")
 
-        rv_direction, rv_reason = evaluate_reversal_signal(closes, candles, ema, atr)
+        rv_direction, rv_reason = evaluate_reversal_signal(closes, candles, ema, atr, symbol)
         if rv_direction is not None:
             send_signal(rv_direction, source="reversal")
             return
