@@ -7,8 +7,15 @@
   },
   "PAXGUSD": {
     "label": "GOLD (PAXG)",
-    "last_sent": "2026-09-30T11:40:13.037881+00:00",
-    "open_signal": null,
+    "last_sent": "2026-09-30T12:40:10.400059+00:00",
+    "open_signal": {
+      "direction": "buy",
+      "entry": 4209.97,
+      "sl": 4199.115357142858,
+      "tp1": 4220.824642857143,
+      "tp2": 4231.679285714286,
+      "opened_at": "2026-09-30T12:40:10.400043+00:00"
+    },
     "consecutive_losses": 0
   }
 }
