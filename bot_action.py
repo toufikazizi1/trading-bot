@@ -485,7 +485,7 @@ def classify_market_structure(candles, left=3, right=3):
     return result
 
 
-def evaluate_support_resistance_signal(candles, atr):
+def evaluate_support_resistance_signal(candles, atr, ema):
     """
     مصدر إشارة مستقل — فلتر واحد بس (بلا أي فلتر تأكيد إضافي):
     كي يوصل السعر لمستوى مقاومة (أعلى قمة في آخر N شمعة) → بيع.
@@ -504,14 +504,20 @@ def evaluate_support_resistance_signal(candles, atr):
 
     rsi_now = calc_rsi([c["close"] for c in candles], RSI_PERIOD)
 
+    trend_up = price > ema
+
     if abs(price - resistance) <= tol:
         if rsi_now < 45:
             return None, f"عند المقاومة لكن RSI منخفض ({rsi_now:.1f}) — احتمال ترند صاعد قوي، البيع خطر"
-        return "sell", f"السعر عند مستوى المقاومة ({resistance:,.2f})"
+        if trend_up:
+            return None, "عند المقاومة لكن الاتجاه العام (EMA200) صاعد — البيع عكس الترند، مرفوض"
+        return "sell", f"السعر عند مستوى المقاومة ({resistance:,.2f}) — مع الترند الهابط"
     if abs(price - support) <= tol:
         if rsi_now > 55:
             return None, f"عند الدعم لكن RSI مرتفع ({rsi_now:.1f}) — احتمال ترند هابط قوي، الشراء خطر"
-        return "buy", f"السعر عند مستوى الدعم ({support:,.2f})"
+        if not trend_up:
+            return None, "عند الدعم لكن الاتجاه العام (EMA200) هابط — الشراء عكس الترند، مرفوض"
+        return "buy", f"السعر عند مستوى الدعم ({support:,.2f}) — مع الترند الصاعد"
 
     return None, None
 
@@ -690,7 +696,7 @@ def format_strong_signal(label, direction, entry, sl, tp1, tp2, atr, rsi, corr,
         else:
             icon = "⬆️"
             title = "Support شراء ⬆️"
-        filters_line = "الفلتر: السعر عند مستوى دعم/مقاومة محلي (فريم 15 دقيقة) + RSI يستبعد الترند القوي عكس الصفقة ⚠️"
+        filters_line = "الفلتر: السعر عند مستوى دعم/مقاومة محلي (فريم 15 دقيقة) + RSI + اتجاه EMA200 — الصفقة مع الترند العام فقط ⚠️"
     elif source == "early":
         title = "انعكاس مبكر ⚡ (مخاطرة عالية)"
         filters_line = "الشروط (فريم 15 دقيقة): قاع/قمة جديدة ✅ | أول شمعة انعكاس ✅ | RSI 30 ✅ | MACD ✅ | حجم ✅ | فريم أعلى ✅ | بنية السوق ✅ | ⚠️ إشارة مبكرة — SL تحت القاع/فوق القمة، استعمل حجم صغير"
@@ -856,7 +862,7 @@ def process_symbol(symbol, label, state, other_closes=None):
     # مصدر مستقل: الدعم/المقاومة (فلتر واحد فقط، بلا أي تأكيد إضافي)
     sr_recent = minutes_since((symbol_state.get("open_signal") or {}).get("opened_at"))
     if sr_recent is None or sr_recent >= 30:
-        sr_direction, sr_reason = evaluate_support_resistance_signal(candles, atr)
+        sr_direction, sr_reason = evaluate_support_resistance_signal(candles, atr, ema)
         if sr_direction is not None:
             send_signal(sr_direction, source="sr")
             return
