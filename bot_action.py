@@ -502,9 +502,15 @@ def evaluate_support_resistance_signal(candles, atr):
     price = candles[-1]["close"]
     tol = SR_TOLERANCE_ATR * atr
 
+    rsi_now = calc_rsi([c["close"] for c in candles], RSI_PERIOD)
+
     if abs(price - resistance) <= tol:
+        if rsi_now < 45:
+            return None, f"عند المقاومة لكن RSI منخفض ({rsi_now:.1f}) — احتمال ترند صاعد قوي، البيع خطر"
         return "sell", f"السعر عند مستوى المقاومة ({resistance:,.2f})"
     if abs(price - support) <= tol:
+        if rsi_now > 55:
+            return None, f"عند الدعم لكن RSI مرتفع ({rsi_now:.1f}) — احتمال ترند هابط قوي، الشراء خطر"
         return "buy", f"السعر عند مستوى الدعم ({support:,.2f})"
 
     return None, None
@@ -684,7 +690,7 @@ def format_strong_signal(label, direction, entry, sl, tp1, tp2, atr, rsi, corr,
         else:
             icon = "⬆️"
             title = "Support شراء ⬆️"
-        filters_line = "الفلتر: السعر عند مستوى دعم/مقاومة محلي (فريم 15 دقيقة) — بلا فلاتر تأكيد إضافية ⚠️"
+        filters_line = "الفلتر: السعر عند مستوى دعم/مقاومة محلي (فريم 15 دقيقة) + RSI يستبعد الترند القوي عكس الصفقة ⚠️"
     elif source == "early":
         title = "انعكاس مبكر ⚡ (مخاطرة عالية)"
         filters_line = "الشروط (فريم 15 دقيقة): قاع/قمة جديدة ✅ | أول شمعة انعكاس ✅ | RSI 30 ✅ | MACD ✅ | حجم ✅ | فريم أعلى ✅ | بنية السوق ✅ | ⚠️ إشارة مبكرة — SL تحت القاع/فوق القمة، استعمل حجم صغير"
