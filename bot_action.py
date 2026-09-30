@@ -34,8 +34,9 @@ from datetime import datetime, timezone
 # ------------------------------------------------------------------
 # صيغة كل رمز: PAIR|LABEL — عدة رموز مفصولة بفاصلة
 # PAIR = رمز الزوج بصيغة Kraken (مثال: XBTUSD لبتكوين، PAXGUSD للذهب)
+# ملاحظة: الافتراضي دروك الذهب وحدو فقط (بطلب المستخدم — تركيز أعلى)
 BOT_SYMBOLS = os.environ.get(
-    "BOT_SYMBOLS", "XBTUSD|BTC/USDT,PAXGUSD|GOLD (PAXG)"
+    "BOT_SYMBOLS", "PAXGUSD|GOLD (PAXG)"
 )
 
 INTERVAL = os.environ.get("BOT_INTERVAL", "15m")          # الفريم الأساسي
@@ -487,22 +488,17 @@ def classify_market_structure(candles, left=3, right=3):
 def evaluate_support_resistance_signal(candles, atr):
     """
     مصدر إشارة مستقل — فلتر واحد بس (بلا أي فلتر تأكيد إضافي):
-    كي يوصل السعر لآخر مستوى مقاومة (قمة محلية) → بيع.
-    كي يوصل السعر لآخر مستوى دعم (قاع محلي) → شراء.
-    مبني على فكرة "Breakout Support & Resistance" لكن بالعكس:
-    يتاجر الارتداد من المستوى، ماشي الاختراق.
+    كي يوصل السعر لمستوى مقاومة (أعلى قمة في آخر N شمعة) → بيع.
+    كي يوصل السعر لمستوى دعم (أدنى قاع في آخر N شمعة) → شراء.
+    يعتمد على الشموع السابقة فقط (بلا انتظار شموع لاحقة للتأكيد)،
+    فالإشارة تنطلق فوراً من أول شمعة تلامس المستوى، بلا أي تأخير.
     """
-    if not SR_SIGNAL or len(candles) < SR_PIVOT_LENGTH * 2 + 5:
+    if not SR_SIGNAL or len(candles) < SR_PIVOT_LENGTH + 5:
         return None, None
 
-    pivots = find_pivots(candles, left=SR_PIVOT_LENGTH, right=SR_PIVOT_LENGTH)
-    highs = [p for p in pivots if p[2] == "high"]
-    lows = [p for p in pivots if p[2] == "low"]
-    if not highs or not lows:
-        return None, None
-
-    resistance = highs[-1][1]
-    support = lows[-1][1]
+    window = candles[-1 - SR_PIVOT_LENGTH:-1]  # آخر N شمعة، بلا الشمعة الحالية
+    resistance = max(c["high"] for c in window)
+    support = min(c["low"] for c in window)
     price = candles[-1]["close"]
     tol = SR_TOLERANCE_ATR * atr
 
