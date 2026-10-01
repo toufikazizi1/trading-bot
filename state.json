@@ -23,6 +23,10 @@
       "breakout": {
         "wins": 0,
         "losses": 0
+      },
+      "mpe": {
+        "wins": 0,
+        "losses": 0
       }
     }
   }
