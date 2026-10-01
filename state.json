@@ -17,6 +17,12 @@
       "opened_at": "2026-10-01T20:45:12.080044+00:00"
     },
     "consecutive_losses": 0,
-    "pause_until": null
+    "pause_until": null,
+    "source_stats": {
+      "breakout": {
+        "wins": 0,
+        "losses": 0
+      }
+    }
   }
 }
