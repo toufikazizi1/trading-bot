@@ -27,6 +27,10 @@
       "mpe": {
         "wins": 0,
         "losses": 0
+      },
+      "sr": {
+        "wins": 0,
+        "losses": 0
       }
     }
   }
