@@ -56,6 +56,10 @@ EARLY_REVERSAL = os.environ.get("BOT_EARLY_REVERSAL", "1") == "1"
 SR_SIGNAL = os.environ.get("BOT_SR_SIGNAL", "1") == "1"
 SR_PIVOT_LENGTH = int(os.environ.get("BOT_SR_PIVOT_LENGTH", "5"))
 SR_TOLERANCE_ATR = float(os.environ.get("BOT_SR_TOLERANCE_ATR", "0.15"))
+MPE_SIGNAL = os.environ.get("BOT_MPE_SIGNAL", "1") == "1"
+MPE_LOOKBACK = int(os.environ.get("BOT_MPE_LOOKBACK", "30"))
+MPE_SCORE_THRESHOLD = int(os.environ.get("BOT_MPE_SCORE_THRESHOLD", "5"))
+MPE_VP_BINS = int(os.environ.get("BOT_MPE_VP_BINS", "20"))
 HOURLY_UPDATE_MINUTES = int(os.environ.get("BOT_HOURLY_UPDATE_MINUTES", "60"))
 MAX_CONSECUTIVE_LOSSES = int(os.environ.get("BOT_MAX_CONSECUTIVE_LOSSES", "3"))
 CIRCUIT_BREAKER_PAUSE_HOURS = float(os.environ.get("BOT_CIRCUIT_BREAKER_PAUSE_HOURS", "4"))
@@ -437,6 +441,176 @@ def evaluate_pullback_signal(closes, candles, ema, atr):
     return trend_direction, "Pullback بعد تطرف RSI — دخول مع الترند العام"
 
 
+def calc_adx(candles, period=14):
+    """
+    قوة الاتجاه (ADX) — ما بين 0 و100. تحت 20 يعني سوق عرضي بلا اتجاه واضح،
+    فوق 25 يعني اتجاه قوي يستاهل المتابعة.
+    """
+    if len(candles) < period * 2:
+        return 0.0
+    plus_dm, minus_dm, trs = [], [], []
+    for i in range(1, len(candles)):
+        up_move = candles[i]["high"] - candles[i - 1]["high"]
+        down_move = candles[i - 1]["low"] - candles[i]["low"]
+        plus_dm.append(up_move if (up_move > down_move and up_move > 0) else 0.0)
+        minus_dm.append(down_move if (down_move > up_move and down_move > 0) else 0.0)
+        tr = max(
+            candles[i]["high"] - candles[i]["low"],
+            abs(candles[i]["high"] - candles[i - 1]["close"]),
+            abs(candles[i]["low"] - candles[i - 1]["close"]),
+        )
+        trs.append(tr)
+
+    def smooth(values, period):
+        if len(values) < period:
+            return []
+        first = sum(values[:period])
+        out = [first]
+        for v in values[period:]:
+            out.append(out[-1] - (out[-1] / period) + v)
+        return out
+
+    tr_s = smooth(trs, period)
+    plus_s = smooth(plus_dm, period)
+    minus_s = smooth(minus_dm, period)
+    if not tr_s or not plus_s or not minus_s:
+        return 0.0
+
+    n = min(len(tr_s), len(plus_s), len(minus_s))
+    dx_values = []
+    for i in range(n):
+        tr_v = tr_s[i] or 1e-9
+        plus_di = 100 * (plus_s[i] / tr_v)
+        minus_di = 100 * (minus_s[i] / tr_v)
+        denom = (plus_di + minus_di) or 1e-9
+        dx = 100 * abs(plus_di - minus_di) / denom
+        dx_values.append(dx)
+
+    if not dx_values:
+        return 0.0
+    tail = dx_values[-period:] if len(dx_values) >= period else dx_values
+    return sum(tail) / len(tail)
+
+
+def calc_volume_profile(candles, bins=20):
+    """
+    Volume Profile مبسّط: يوزّع حجم التداول على مستويات سعرية داخل آخر شموع،
+    ويرجع نقطة التركيز (POC — Point of Control): السعر اللي تداول عليه أكبر حجم.
+    """
+    if len(candles) < 5:
+        return None
+    lo = min(c["low"] for c in candles)
+    hi = max(c["high"] for c in candles)
+    if hi <= lo:
+        return None
+    bin_size = (hi - lo) / bins
+    volumes = [0.0] * bins
+
+    for c in candles:
+        mid = (c["high"] + c["low"]) / 2
+        idx = int((mid - lo) / bin_size)
+        idx = max(0, min(bins - 1, idx))
+        volumes[idx] += c["volume"]
+
+    poc_idx = volumes.index(max(volumes))
+    poc_price = lo + (poc_idx + 0.5) * bin_size
+    return {"poc": poc_price, "range_low": lo, "range_high": hi}
+
+
+def calc_order_flow_pressure(candles, lookback=14):
+    """
+    تقريب لـ Order Flow بدون بيانات Tick: يحسب أين أغلق السعر داخل مدى كل شمعة
+    (قرب القمة = ضغط شراء، قرب القاع = ضغط بيع) مرجّح بالحجم — نفس مبدأ
+    Chaikin Money Flow. يرجع قيمة بين -1 (ضغط بيع قوي) و +1 (ضغط شراء قوي).
+    """
+    recent = candles[-lookback:] if len(candles) >= lookback else candles
+    total_vol = sum(c["volume"] for c in recent)
+    if total_vol == 0:
+        return 0.0
+    flow_sum = 0.0
+    for c in recent:
+        full_range = c["high"] - c["low"]
+        if full_range == 0:
+            continue
+        mfm = ((c["close"] - c["low"]) - (c["high"] - c["close"])) / full_range
+        flow_sum += mfm * c["volume"]
+    return flow_sum / total_vol
+
+
+def evaluate_market_prediction_signal(closes, candles, ema, atr):
+    """
+    Market Prediction Engine — مصدر إشارة مستقل يجمع عدة عناصر في نقاط (Score)
+    بدل فلتر واحد قاطع: اتجاه EMA200، RSI، زخم MACD، قوة الاتجاه ADX،
+    موقع السعر من Volume Profile (POC)، وضغط Order Flow (تقريبي).
+    يبعث إشارة غير إذا النقاط الإجمالية وصلت حد معيّن (ثقة عالية).
+    """
+    if not MPE_SIGNAL or len(closes) < max(MPE_LOOKBACK, 40):
+        return None, None, 0
+
+    rsi_now = calc_rsi(closes, RSI_PERIOD)
+    adx = calc_adx(candles, 14)
+    flow = calc_order_flow_pressure(candles, MPE_LOOKBACK)
+    vp = calc_volume_profile(candles[-MPE_LOOKBACK:], MPE_VP_BINS)
+    price = closes[-1]
+
+    macd_line, signal_line = calc_macd_series(closes)
+    macd_bullish = False
+    macd_bearish = False
+    if macd_line and signal_line and len(macd_line) >= len(signal_line):
+        hist = [m - sgn for m, sgn in zip(macd_line[-len(signal_line):], signal_line)]
+        if len(hist) >= 2:
+            macd_bullish = hist[-1] > hist[-2] and hist[-1] > 0
+            macd_bearish = hist[-1] < hist[-2] and hist[-1] < 0
+
+    bull_score = 0
+    bear_score = 0
+
+    # 1) اتجاه EMA200
+    if price > ema:
+        bull_score += 1
+    else:
+        bear_score += 1
+
+    # 2) RSI (منطقة صحية، بعيدة عن التشبع)
+    if 50 <= rsi_now < 70:
+        bull_score += 1
+    elif 30 < rsi_now <= 50:
+        bear_score += 1
+
+    # 3) زخم MACD
+    if macd_bullish:
+        bull_score += 1
+    if macd_bearish:
+        bear_score += 1
+
+    # 4) قوة الاتجاه ADX — يُحسب لصالح الاتجاه الحالي فقط إذا كان قوي
+    if adx >= 20:
+        if price > ema:
+            bull_score += 1
+        else:
+            bear_score += 1
+
+    # 5) ضغط Order Flow (تقريبي)
+    if flow > 0.15:
+        bull_score += 1
+    elif flow < -0.15:
+        bear_score += 1
+
+    # 6) موقع السعر من Volume Profile POC
+    if vp is not None:
+        if price > vp["poc"]:
+            bull_score += 1
+        elif price < vp["poc"]:
+            bear_score += 1
+
+    if bull_score >= MPE_SCORE_THRESHOLD and bull_score > bear_score:
+        return "buy", f"Market Prediction: نقاط شراء {bull_score}/6 (ADX={adx:.0f}, Flow={flow:+.2f})", bull_score
+    if bear_score >= MPE_SCORE_THRESHOLD and bear_score > bull_score:
+        return "sell", f"Market Prediction: نقاط بيع {bear_score}/6 (ADX={adx:.0f}, Flow={flow:+.2f})", bear_score
+
+    return None, None, max(bull_score, bear_score)
+
+
 def check_macd_momentum(closes, direction):
     """MACD لازم يبدا يرتد في نفس اتجاه الإشارة (الهيستوغرام يتحسن مقارنة بآخر 3 شموع)."""
     macd_line, signal_line = calc_macd_series(closes)
@@ -689,6 +863,12 @@ def format_strong_signal(label, direction, entry, sl, tp1, tp2, atr, rsi, corr,
     if source == "zlr":
         title = "استمرار اتجاه — MACD Zero Line Reversal"
         filters_line = "الفلاتر المجتازة: اتجاه EMA200 ✅ | RSI ✅ | حجم تداول ✅ | جسم شمعة قوي ✅"
+    elif source == "mpe":
+        title = f"Market Prediction Engine 🔮 ({reason})" if reason else "Market Prediction Engine 🔮"
+        filters_line = (
+            "المحرك يجمع: اتجاه EMA200 + RSI + زخم MACD + قوة الاتجاه ADX + "
+            "Volume Profile (POC) + Order Flow تقريبي — في نظام نقاط (Score) واحد"
+        )
     elif source == "sr":
         if direction == "sell":
             icon = "🔻"
@@ -813,7 +993,7 @@ def process_symbol(symbol, label, state, other_closes=None):
     else:
         signal_ok = True
 
-    def send_signal(direction, source, swing=None):
+    def send_signal(direction, source, swing=None, reason=""):
         if direction == "buy":
             sl = current_price - atr * ATR_SL_MULT
             tp1 = current_price + atr * ATR_TP1_MULT
@@ -835,7 +1015,7 @@ def process_symbol(symbol, label, state, other_closes=None):
         if other_closes is not None:
             corr = check_correlation(closes, other_closes, direction)
 
-        notify(format_strong_signal(label, direction, current_price, sl, tp1, tp2, atr, rsi, corr, source=source))
+        notify(format_strong_signal(label, direction, current_price, sl, tp1, tp2, atr, rsi, corr, source=source, reason=reason))
 
         symbol_state["open_signal"] = {
             "direction": direction, "entry": current_price,
@@ -868,6 +1048,16 @@ def process_symbol(symbol, label, state, other_closes=None):
             return
         if sr_reason:
             log(f"{label}: لا S/R — {sr_reason}")
+
+    # مصدر مستقل: Market Prediction Engine (نظام نقاط مركّب: EMA+RSI+MACD+ADX+Volume Profile+Order Flow)
+    mpe_recent = minutes_since((symbol_state.get("open_signal") or {}).get("opened_at"))
+    if mpe_recent is None or mpe_recent >= 30:
+        mpe_direction, mpe_reason, mpe_score = evaluate_market_prediction_signal(closes, candles, ema, atr)
+        if mpe_direction is not None:
+            send_signal(mpe_direction, source="mpe", reason=f"{mpe_score}/6 نقاط")
+            return
+        if mpe_score:
+            log(f"{label}: لا MPE — نقاط غير كافية ({mpe_score}/6)")
 
     # المصدر الثالث: Pullback (يعالج حالة RSI المتطرف اللي تمنع الاختراق و ZLR)
     recent = minutes_since((symbol_state.get("open_signal") or {}).get("opened_at"))
