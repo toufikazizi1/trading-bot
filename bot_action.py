@@ -52,7 +52,6 @@ ATR_SL_MULT = float(os.environ.get("BOT_ATR_SL_MULT", "1.5"))
 ATR_TP1_MULT = float(os.environ.get("BOT_ATR_TP1_MULT", "1.5"))
 ATR_TP2_MULT = float(os.environ.get("BOT_ATR_TP2_MULT", "3.0"))
 ALLOW_COUNTER_TREND = os.environ.get("BOT_ALLOW_COUNTER_TREND", "1") == "1"
-EARLY_REVERSAL = os.environ.get("BOT_EARLY_REVERSAL", "1") == "1"
 SR_SIGNAL = os.environ.get("BOT_SR_SIGNAL", "1") == "1"
 SR_PIVOT_LENGTH = int(os.environ.get("BOT_SR_PIVOT_LENGTH", "5"))
 SR_TOLERANCE_ATR = float(os.environ.get("BOT_SR_TOLERANCE_ATR", "0.15"))
@@ -60,6 +59,8 @@ MPE_SIGNAL = os.environ.get("BOT_MPE_SIGNAL", "1") == "1"
 MPE_LOOKBACK = int(os.environ.get("BOT_MPE_LOOKBACK", "30"))
 MPE_SCORE_THRESHOLD = int(os.environ.get("BOT_MPE_SCORE_THRESHOLD", "5"))
 MPE_VP_BINS = int(os.environ.get("BOT_MPE_VP_BINS", "20"))
+VAB_SIGNAL = os.environ.get("BOT_VAB_SIGNAL", "1") == "1"
+VAB_LOOKBACK = int(os.environ.get("BOT_VAB_LOOKBACK", "40"))
 HOURLY_UPDATE_MINUTES = int(os.environ.get("BOT_HOURLY_UPDATE_MINUTES", "60"))
 MAX_CONSECUTIVE_LOSSES = int(os.environ.get("BOT_MAX_CONSECUTIVE_LOSSES", "3"))
 CIRCUIT_BREAKER_PAUSE_HOURS = float(os.environ.get("BOT_CIRCUIT_BREAKER_PAUSE_HOURS", "4"))
@@ -492,10 +493,12 @@ def calc_adx(candles, period=14):
     return sum(tail) / len(tail)
 
 
-def calc_volume_profile(candles, bins=20):
+def calc_volume_profile(candles, bins=20, value_area_pct=0.70):
     """
-    Volume Profile مبسّط: يوزّع حجم التداول على مستويات سعرية داخل آخر شموع،
-    ويرجع نقطة التركيز (POC — Point of Control): السعر اللي تداول عليه أكبر حجم.
+    Volume Profile — يوزّع حجم التداول على مستويات سعرية داخل آخر شموع.
+    يرجع POC (Point of Control — أكبر تركّز حجم)، ومنطقة القيمة كاملة:
+    VAH (Value Area High) و VAL (Value Area Low) — الحدود اللي تحوي
+    70% من الحجم حول الـ POC (نفس منطق Volume Profile الاحترافي).
     """
     if len(candles) < 5:
         return None
@@ -512,9 +515,34 @@ def calc_volume_profile(candles, bins=20):
         idx = max(0, min(bins - 1, idx))
         volumes[idx] += c["volume"]
 
+    total_volume = sum(volumes) or 1e-9
     poc_idx = volumes.index(max(volumes))
     poc_price = lo + (poc_idx + 0.5) * bin_size
-    return {"poc": poc_price, "range_low": lo, "range_high": hi}
+
+    # بناء منطقة القيمة: نوسّع من الـ POC للخارج (يمين/يسار) نختار الأكبر حجم
+    # في كل خطوة، حتى نوصل لنسبة value_area_pct من الحجم الكلي.
+    included = {poc_idx}
+    acc_volume = volumes[poc_idx]
+    low_i, high_i = poc_idx, poc_idx
+    while acc_volume < total_volume * value_area_pct and (low_i > 0 or high_i < bins - 1):
+        vol_below = volumes[low_i - 1] if low_i > 0 else -1
+        vol_above = volumes[high_i + 1] if high_i < bins - 1 else -1
+        if vol_above >= vol_below:
+            high_i += 1
+            acc_volume += volumes[high_i]
+        else:
+            low_i -= 1
+            acc_volume += volumes[low_i]
+        included.add(low_i)
+        included.add(high_i)
+
+    val_price = lo + low_i * bin_size
+    vah_price = lo + (high_i + 1) * bin_size
+
+    return {
+        "poc": poc_price, "vah": vah_price, "val": val_price,
+        "range_low": lo, "range_high": hi,
+    }
 
 
 def calc_order_flow_pressure(candles, lookback=14):
@@ -535,6 +563,49 @@ def calc_order_flow_pressure(candles, lookback=14):
         mfm = ((c["close"] - c["low"]) - (c["high"] - c["close"])) / full_range
         flow_sum += mfm * c["volume"]
     return flow_sum / total_vol
+
+
+def evaluate_value_area_breakout(closes, candles, atr):
+    """
+    اختراق منطقة القيمة (Value Area Breakout) — منقول من فكرة
+    Break → Retest → Confirmation: ما يدخلش فور الاختراق (تجنب "مطاردة
+    السعر")، يستنى:
+    1) شمعة تخترق وتُغلق خارج VAH/VAL
+    2) شمعة ترتد وتختبر الحافة (Retest) بلا ما تدخل القيمة من جديد
+    3) شمعة تأكيد تكمل في نفس الاتجاه، مدعومة بـ RSI وضغط Order Flow وحجم
+    """
+    if not VAB_SIGNAL or len(candles) < VAB_LOOKBACK + 5:
+        return None, None
+
+    vp = calc_volume_profile(candles[-VAB_LOOKBACK:], MPE_VP_BINS)
+    if vp is None:
+        return None, None
+
+    vah, val = vp["vah"], vp["val"]
+    break_c, retest_c, confirm_c = candles[-3], candles[-2], candles[-1]
+    rsi_now = calc_rsi(closes, RSI_PERIOD)
+    flow = calc_order_flow_pressure(candles, 14)
+    band = max(0.3 * atr, 0.05)
+
+    # BUY: اختراق فوق VAH + Retest + تأكيد استمرار
+    if (break_c["close"] > vah
+            and retest_c["low"] <= vah + band and retest_c["close"] >= vah - band * 0.5
+            and confirm_c["close"] > vah and confirm_c["close"] > break_c["close"]
+            and rsi_now < 75 and flow > 0):
+        if not check_volume(candles):
+            return None, "Value Area Breakout شراء: حجم التداول ضعيف"
+        return "buy", f"اختراق مؤكد فوق VAH ({vah:,.2f}) بعد Retest وتأكيد استمرار"
+
+    # SELL: كسر تحت VAL + Retest + تأكيد استمرار
+    if (break_c["close"] < val
+            and retest_c["high"] >= val - band and retest_c["close"] <= val + band * 0.5
+            and confirm_c["close"] < val and confirm_c["close"] < break_c["close"]
+            and rsi_now > 25 and flow < 0):
+        if not check_volume(candles):
+            return None, "Value Area Breakdown بيع: حجم التداول ضعيف"
+        return "sell", f"كسر مؤكد تحت VAL ({val:,.2f}) بعد Retest وتأكيد استمرار"
+
+    return None, None
 
 
 def evaluate_market_prediction_signal(closes, candles, ema, atr):
@@ -747,57 +818,6 @@ def evaluate_reversal_signal(closes, candles, ema, atr, symbol=None):
     return direction, "ارتداد عكس الترند بعد تطرف RSI (مؤكد بـ RSI+MACD+حجم+فريم أعلى+بنية السوق)"
 
 
-def evaluate_early_reversal(closes, candles, atr, symbol=None):
-    """
-    إشارة مبكرة: أول شمعة انعكاس بعد قاع (أو قمة) جديد — قبل ما يفوت الوقت.
-    شراء: السعر عمل أدنى قاع في آخر 24 شمعة، الشمعة السابقة حمراء،
-    الشمعة الحالية خضراء، RSI منخفض (<40) وبدأ يرتفع.
-    بيع: العكس. SL يكون تحت القاع (أو فوق القمة) مباشرة.
-    مخاطرة عالية: تجي إشارات كاذبة أكثر من الطرق الأخرى.
-    """
-    if not EARLY_REVERSAL or len(candles) < 30:
-        return None, None, None
-
-    last, prev = candles[-1], candles[-2]
-    window = candles[-27:-3]
-    recent3 = candles[-3:]
-    rsi_now = calc_rsi(closes, RSI_PERIOD)
-    rsi_prev = calc_rsi(closes[:-1], RSI_PERIOD)
-
-    rsis5 = [calc_rsi(closes[:len(closes) - k], RSI_PERIOD) for k in range(0, 5)]
-    new_low = min(c["low"] for c in recent3) <= min(c["low"] for c in window)
-    new_high = max(c["high"] for c in recent3) >= max(c["high"] for c in window)
-
-    if new_low and prev["close"] < prev["open"] and last["close"] > last["open"] \
-            and min(rsis5) <= 30 and rsi_now > rsi_prev and rsi_now < 50:
-        if not check_macd_momentum(closes, "buy"):
-            return None, "انعكاس مبكر شراء: MACD ما يدعمش بعد", None
-        if not check_volume(candles, mult=1.0):
-            return None, "انعكاس مبكر شراء: حجم التداول ضعيف", None
-        if symbol is not None and not check_higher_timeframe(symbol, "buy"):
-            return None, "انعكاس مبكر شراء: الفريم الأعلى ما يدعمش", None
-        structure = classify_market_structure(candles)
-        if structure["last_low"] == "LL":
-            return None, "انعكاس مبكر شراء: بنية السوق ما زالت LL — الهبوط لسه قوي", None
-        swing = min(c["low"] for c in recent3)
-        return "buy", "أول شمعة انعكاس صاعدة بعد قاع جديد (مؤكد بـ MACD+حجم+فريم أعلى+بنية السوق)", swing
-
-    if new_high and prev["close"] > prev["open"] and last["close"] < last["open"] \
-            and rsi_now > 30 and rsi_now < rsi_prev:
-        if not check_macd_momentum(closes, "sell"):
-            return None, "انعكاس مبكر بيع: MACD ما يدعمش بعد", None
-        if not check_volume(candles, mult=1.0):
-            return None, "انعكاس مبكر بيع: حجم التداول ضعيف", None
-        if symbol is not None and not check_higher_timeframe(symbol, "sell"):
-            return None, "انعكاس مبكر بيع: الفريم الأعلى ما يدعمش", None
-        structure = classify_market_structure(candles)
-        if structure["last_high"] == "HH":
-            return None, "انعكاس مبكر بيع: بنية السوق ما زالت HH — الصعود لسه قوي", None
-        swing = max(c["high"] for c in recent3)
-        return "sell", "أول شمعة انعكاس هابطة بعد قمة جديدة (مؤكد بـ MACD+حجم+فريم أعلى+بنية السوق)", swing
-
-    return None, None, None
-
 
 # ------------------------------------------------------------------
 # قاطع الدائرة (Circuit Breaker) — يتحقق من نتائج آخر إشارة قبل يرسل جديدة
@@ -816,13 +836,18 @@ def check_open_signal_outcome(symbol_state, current_price):
     hit_sl = (direction == "buy" and current_price <= sl) or \
              (direction == "sell" and current_price >= sl)
 
+    src = open_signal.get("source", "breakout")
+    stats = symbol_state.setdefault("source_stats", {}).setdefault(src, {"wins": 0, "losses": 0})
+
     if hit_tp:
         symbol_state["consecutive_losses"] = 0
         symbol_state["open_signal"] = None
+        stats["wins"] += 1
         log(f"✅ آخر إشارة {symbol_state.get('label','')} لامست TP1 — تصفير عداد الخسائر")
     elif hit_sl:
         symbol_state["consecutive_losses"] = symbol_state.get("consecutive_losses", 0) + 1
         symbol_state["open_signal"] = None
+        stats["losses"] += 1
         log(f"❌ آخر إشارة {symbol_state.get('label','')} لامست SL — عداد الخسائر = {symbol_state['consecutive_losses']}")
 
 
@@ -863,6 +888,9 @@ def format_strong_signal(label, direction, entry, sl, tp1, tp2, atr, rsi, corr,
     if source == "zlr":
         title = "استمرار اتجاه — MACD Zero Line Reversal"
         filters_line = "الفلاتر المجتازة: اتجاه EMA200 ✅ | RSI ✅ | حجم تداول ✅ | جسم شمعة قوي ✅"
+    elif source == "vab":
+        title = "اختراق منطقة القيمة 📊 (Value Area Breakout)"
+        filters_line = "الشروط: اختراق مغلق خارج VAH/VAL ✅ | Retest موثق ✅ | تأكيد استمرار ✅ | RSI ✅ | Order Flow ✅ | حجم ✅"
     elif source == "mpe":
         title = f"Market Prediction Engine 🔮 ({reason})" if reason else "Market Prediction Engine 🔮"
         filters_line = (
@@ -877,9 +905,6 @@ def format_strong_signal(label, direction, entry, sl, tp1, tp2, atr, rsi, corr,
             icon = "⬆️"
             title = "Support شراء ⬆️"
         filters_line = "الفلتر: السعر عند مستوى دعم/مقاومة محلي (فريم 15 دقيقة) + RSI + اتجاه EMA200 — الصفقة مع الترند العام فقط ⚠️"
-    elif source == "early":
-        title = "انعكاس مبكر ⚡ (مخاطرة عالية)"
-        filters_line = "الشروط (فريم 15 دقيقة): قاع/قمة جديدة ✅ | أول شمعة انعكاس ✅ | RSI 30 ✅ | MACD ✅ | حجم ✅ | فريم أعلى ✅ | بنية السوق ✅ | ⚠️ إشارة مبكرة — SL تحت القاع/فوق القمة، استعمل حجم صغير"
     elif source == "reversal":
         title = "ارتداد عكس الترند ⚠️ (مخاطرة أعلى)"
         filters_line = "الشروط: RSI ارتد ✅ | MACD ✅ | حجم ✅ | فريم أعلى ✅ | بنية السوق (HH/HL/LH/LL) ✅ | تجاوز EMA20 ✅ | شمعة تأكيد ✅ | ⚠️ عكس اتجاه EMA200"
@@ -917,8 +942,29 @@ def format_strong_signal(label, direction, entry, sl, tp1, tp2, atr, rsi, corr,
     )
 
 
-def format_hourly_update(label, price, ema, rsi, trend_word):
+SOURCE_LABELS_AR = {
+    "breakout": "اختراق", "zlr": "ZLR", "sr": "دعم/مقاومة", "mpe": "Market Prediction",
+    "vab": "اختراق منطقة القيمة", "pullback": "Pullback", "reversal": "Reversal",
+}
+
+
+def format_accuracy_summary(source_stats):
+    lines = []
+    for src, st in source_stats.items():
+        total = st.get("wins", 0) + st.get("losses", 0)
+        if total < 3:
+            continue
+        pct = round(st["wins"] / total * 100)
+        name = SOURCE_LABELS_AR.get(src, src)
+        lines.append(f"{name}: {pct}% ({st['wins']}/{total})")
+    if not lines:
+        return ""
+    return "📊 دقة المصادر حتى الآن: " + " | ".join(lines) + "\n\n"
+
+
+def format_hourly_update(label, price, ema, rsi, trend_word, source_stats=None):
     ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    accuracy_line = format_accuracy_summary(source_stats) if source_stats else ""
     return (
         f"🕐 <b>تحديث دوري (بدون توصية دخول)</b>\n"
         f"الرمز: {label}\n"
@@ -926,6 +972,7 @@ def format_hourly_update(label, price, ema, rsi, trend_word):
         f"السعر الحالي: {price:,.2f}\n"
         f"الاتجاه العام (EMA{EMA_PERIOD}): {trend_word}\n"
         f"RSI: {rsi:.1f}\n\n"
+        f"{accuracy_line}"
         f"لا يوجد اختراق مؤكد حالياً يجتاز كل الفلاتر — هذا تحديث حالة "
         f"سوق فقط، وليس إشارة دخول."
     )
@@ -1019,7 +1066,7 @@ def process_symbol(symbol, label, state, other_closes=None):
 
         symbol_state["open_signal"] = {
             "direction": direction, "entry": current_price,
-            "sl": sl, "tp1": tp1, "tp2": tp2,
+            "sl": sl, "tp1": tp1, "tp2": tp2, "source": source,
             "opened_at": datetime.now(timezone.utc).isoformat(),
         }
         symbol_state["last_sent"] = datetime.now(timezone.utc).isoformat()
@@ -1059,16 +1106,19 @@ def process_symbol(symbol, label, state, other_closes=None):
         if mpe_score:
             log(f"{label}: لا MPE — نقاط غير كافية ({mpe_score}/6)")
 
+    # مصدر مستقل: اختراق منطقة القيمة (Value Area Breakout — Break/Retest/Confirm)
+    vab_recent = minutes_since((symbol_state.get("open_signal") or {}).get("opened_at"))
+    if vab_recent is None or vab_recent >= 20:
+        vab_direction, vab_reason = evaluate_value_area_breakout(closes, candles, atr)
+        if vab_direction is not None:
+            send_signal(vab_direction, source="vab")
+            return
+        if vab_reason:
+            log(f"{label}: لا VAB — {vab_reason}")
+
     # المصدر الثالث: Pullback (يعالج حالة RSI المتطرف اللي تمنع الاختراق و ZLR)
     recent = minutes_since((symbol_state.get("open_signal") or {}).get("opened_at"))
     if recent is None or recent >= 90:
-        ev_direction, ev_reason, ev_swing = evaluate_early_reversal(closes, candles, atr, symbol)
-        if ev_direction is not None:
-            send_signal(ev_direction, source="early", swing=ev_swing)
-            return
-        if ev_reason:
-            log(f"{label}: لا انعكاس مبكر — {ev_reason}")
-
         pb_direction, pb_reason = evaluate_pullback_signal(closes, candles, ema, atr)
         if pb_direction is not None:
             send_signal(pb_direction, source="pullback")
@@ -1086,7 +1136,7 @@ def process_symbol(symbol, label, state, other_closes=None):
     elapsed = minutes_since(symbol_state.get("last_sent"))
     if elapsed is None or elapsed >= HOURLY_UPDATE_MINUTES:
         trend_word = "صاعد (فوق EMA)" if current_price > ema else "هابط (تحت EMA)"
-        notify(format_hourly_update(label, current_price, ema, rsi, trend_word))
+        notify(format_hourly_update(label, current_price, ema, rsi, trend_word, symbol_state.get("source_stats")))
         symbol_state["last_sent"] = datetime.now(timezone.utc).isoformat()
 
 
