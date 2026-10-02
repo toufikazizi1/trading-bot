@@ -31,6 +31,10 @@
       "sr": {
         "wins": 1,
         "losses": 1
+      },
+      "pullback": {
+        "wins": 0,
+        "losses": 0
       }
     }
   }
