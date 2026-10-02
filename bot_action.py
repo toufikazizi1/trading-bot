@@ -610,19 +610,29 @@ def evaluate_value_area_breakout(closes, candles, atr):
 
 def evaluate_market_prediction_signal(closes, candles, ema, atr):
     """
-    Market Prediction Engine — مصدر إشارة مستقل يجمع عدة عناصر في نقاط (Score)
-    بدل فلتر واحد قاطع: اتجاه EMA200، RSI، زخم MACD، قوة الاتجاه ADX،
-    موقع السعر من Volume Profile (POC)، وضغط Order Flow (تقريبي).
-    يبعث إشارة غير إذا النقاط الإجمالية وصلت حد معيّن (ثقة عالية).
+    Market Prediction Engine — مصدر إشارة مستقل يجمع عدة عناصر في نقاط (Score):
+    اتجاه EMA200، RSI، زخم MACD، موقع السعر من Volume Profile (POC)، وضغط
+    Order Flow (تقريبي). يبعث إشارة غير إذا النقاط الإجمالية وصلت حد معيّن.
+
+    ADX هنا بوابة (Gate) وليس نقطة إضافية — سوق بلا اتجاه واضح (ADX ضعيف)
+    يمنع الإشارة كاملة، بدل ما يزيد نقطة تكرر نفس اتجاه EMA200.
+
+    شرط إضافي إجباري: الزخم القريب (EMA20) لازم يتفق مع اتجاه الإشارة —
+    هذا يمنع الدخول لما يكون الاتجاه العام الطويل (EMA200) لسه قديم/متأخر
+    بينما السعر بدا فعلياً ينعكس في آخر الشموع.
     """
     if not MPE_SIGNAL or len(closes) < max(MPE_LOOKBACK, 40):
         return None, None, 0
 
-    rsi_now = calc_rsi(closes, RSI_PERIOD)
     adx = calc_adx(candles, 14)
+    if adx < 18:
+        return None, None, 0  # سوق بلا اتجاه واضح — المحرك ما يحسبش أصلاً
+
+    rsi_now = calc_rsi(closes, RSI_PERIOD)
     flow = calc_order_flow_pressure(candles, MPE_LOOKBACK)
     vp = calc_volume_profile(candles[-MPE_LOOKBACK:], MPE_VP_BINS)
     price = closes[-1]
+    ema20 = calc_ema(closes, 20)
 
     macd_line, signal_line = calc_macd_series(closes)
     macd_bullish = False
@@ -654,30 +664,29 @@ def evaluate_market_prediction_signal(closes, candles, ema, atr):
     if macd_bearish:
         bear_score += 1
 
-    # 4) قوة الاتجاه ADX — يُحسب لصالح الاتجاه الحالي فقط إذا كان قوي
-    if adx >= 20:
-        if price > ema:
-            bull_score += 1
-        else:
-            bear_score += 1
-
-    # 5) ضغط Order Flow (تقريبي)
+    # 4) ضغط Order Flow (تقريبي)
     if flow > 0.15:
         bull_score += 1
     elif flow < -0.15:
         bear_score += 1
 
-    # 6) موقع السعر من Volume Profile POC
+    # 5) موقع السعر من Volume Profile POC
     if vp is not None:
         if price > vp["poc"]:
             bull_score += 1
         elif price < vp["poc"]:
             bear_score += 1
 
-    if bull_score >= MPE_SCORE_THRESHOLD and bull_score > bear_score:
-        return "buy", f"Market Prediction: نقاط شراء {bull_score}/6 (ADX={adx:.0f}, Flow={flow:+.2f})", bull_score
-    if bear_score >= MPE_SCORE_THRESHOLD and bear_score > bull_score:
-        return "sell", f"Market Prediction: نقاط بيع {bear_score}/6 (ADX={adx:.0f}, Flow={flow:+.2f})", bear_score
+    threshold = min(MPE_SCORE_THRESHOLD, 5)
+
+    if bull_score >= threshold and bull_score > bear_score:
+        if price < ema20:
+            return None, None, bull_score  # الزخم القريب عكس الإشارة — رفض
+        return "buy", f"Market Prediction: نقاط شراء {bull_score}/5 (ADX={adx:.0f}, Flow={flow:+.2f})", bull_score
+    if bear_score >= threshold and bear_score > bull_score:
+        if price > ema20:
+            return None, None, bear_score  # الزخم القريب عكس الإشارة — رفض
+        return "sell", f"Market Prediction: نقاط بيع {bear_score}/5 (ADX={adx:.0f}, Flow={flow:+.2f})", bear_score
 
     return None, None, max(bull_score, bear_score)
 
@@ -894,8 +903,9 @@ def format_strong_signal(label, direction, entry, sl, tp1, tp2, atr, rsi, corr,
     elif source == "mpe":
         title = f"Market Prediction Engine 🔮 ({reason})" if reason else "Market Prediction Engine 🔮"
         filters_line = (
-            "المحرك يجمع: اتجاه EMA200 + RSI + زخم MACD + قوة الاتجاه ADX + "
-            "Volume Profile (POC) + Order Flow تقريبي — في نظام نقاط (Score) واحد"
+            "المحرك يجمع: اتجاه EMA200 + RSI + زخم MACD + Volume Profile (POC) + "
+            "Order Flow تقريبي في نظام نقاط ✅ | بوابة ADX (قوة اتجاه كافية) ✅ | "
+            "الزخم القريب (EMA20) متفق مع الإشارة ✅"
         )
     elif source == "sr":
         if direction == "sell":
