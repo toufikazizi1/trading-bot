@@ -756,22 +756,27 @@ def evaluate_support_resistance_signal(candles, atr, ema):
     price = candles[-1]["close"]
     tol = SR_TOLERANCE_ATR * atr
 
-    rsi_now = calc_rsi([c["close"] for c in candles], RSI_PERIOD)
+    closes_all = [c["close"] for c in candles]
+    rsi_now = calc_rsi(closes_all, RSI_PERIOD)
+    # EMA200 بطيء جداً (50+ ساعة) وممكن يبقى يقول "هابط" حتى بعد ما السعر
+    # يرتد فعلياً ويبدا صعود قوي قريب. EMA20 يمسك الزخم القريب فيمنع هذا الفخ.
+    ema20 = calc_ema(closes_all, 20)
 
-    trend_up = price > ema
+    trend_up_long = price > ema
+    trend_up_short = price > ema20
 
     if abs(price - resistance) <= tol:
         if rsi_now < 45:
             return None, f"عند المقاومة لكن RSI منخفض ({rsi_now:.1f}) — احتمال ترند صاعد قوي، البيع خطر"
-        if trend_up:
-            return None, "عند المقاومة لكن الاتجاه العام (EMA200) صاعد — البيع عكس الترند، مرفوض"
-        return "sell", f"السعر عند مستوى المقاومة ({resistance:,.2f}) — مع الترند الهابط"
+        if trend_up_long or trend_up_short:
+            return None, "عند المقاومة لكن الاتجاه (طويل أو قريب) صاعد — البيع عكس الترند، مرفوض"
+        return "sell", f"السعر عند مستوى المقاومة ({resistance:,.2f}) — مع الترند الهابط (طويل وقريب)"
     if abs(price - support) <= tol:
         if rsi_now > 55:
             return None, f"عند الدعم لكن RSI مرتفع ({rsi_now:.1f}) — احتمال ترند هابط قوي، الشراء خطر"
-        if not trend_up:
-            return None, "عند الدعم لكن الاتجاه العام (EMA200) هابط — الشراء عكس الترند، مرفوض"
-        return "buy", f"السعر عند مستوى الدعم ({support:,.2f}) — مع الترند الصاعد"
+        if not trend_up_long or not trend_up_short:
+            return None, "عند الدعم لكن الاتجاه (طويل أو قريب) هابط — الشراء عكس الترند، مرفوض"
+        return "buy", f"السعر عند مستوى الدعم ({support:,.2f}) — مع الترند الصاعد (طويل وقريب)"
 
     return None, None
 
@@ -914,7 +919,7 @@ def format_strong_signal(label, direction, entry, sl, tp1, tp2, atr, rsi, corr,
         else:
             icon = "⬆️"
             title = "Support شراء ⬆️"
-        filters_line = "الفلتر: السعر عند مستوى دعم/مقاومة محلي (فريم 15 دقيقة) + RSI + اتجاه EMA200 — الصفقة مع الترند العام فقط ⚠️"
+        filters_line = "الفلتر: السعر عند مستوى دعم/مقاومة محلي (فريم 15 دقيقة) + RSI + اتجاه EMA200 (طويل) + EMA20 (قريب) — الاثنين لازم يتفقو ⚠️"
     elif source == "reversal":
         title = "ارتداد عكس الترند ⚠️ (مخاطرة أعلى)"
         filters_line = "الشروط: RSI ارتد ✅ | MACD ✅ | حجم ✅ | فريم أعلى ✅ | بنية السوق (HH/HL/LH/LL) ✅ | تجاوز EMA20 ✅ | شمعة تأكيد ✅ | ⚠️ عكس اتجاه EMA200"
