@@ -637,6 +637,93 @@ def update_timing(timing, px, a, side, trigger, closed_break, retest_evidence, c
 # ------------------------------------------------------------------
 # محرك القرار الرئيسي (منقول من دالة calc() الأصلية)
 # ------------------------------------------------------------------
+def classify_move_path(work, px, a, vp, flow, raw_f, macro_structure, imm, fd, ms):
+    """
+    مصنّف مسار الحركة — يفرق بين 3 حالات عند أي حركة عكس الاتجاه الأساسي:
+      REVERSAL   انعكاس حقيقي: كسر بنيوي + انقلاب ضغط + استمرار (نقاط >=70)
+      CORRECTION تصحيح مؤقت: البنية الأساسية سليمة، ما نعكسش القرار غلط
+      MOVE_END   توقف/إجهاد: بلا دليل كافٍ على انعكاس حقيقي، نوقف بلا تأكيد
+    منقول من classifyMovePath() في الملف اللي بعثه المستخدم.
+    """
+    if len(work) < 8 or a <= 0:
+        return {"state": "WAIT", "direction": None, "confidence": 0, "reason": "بيانات غير كافية لتصنيف نهاية الحركة."}
+
+    bars = work[-8:]
+    bull_trend = macro_structure == "BULLISH" or imm.get("bull")
+    bear_trend = macro_structure == "BEARISH" or imm.get("bear")
+    score0 = raw_f[0]["score"] if raw_f else 0
+    score1 = raw_f[1]["score"] if len(raw_f) > 1 else score0
+
+    if bull_trend and not bear_trend:
+        main_dir = "UP"
+    elif bear_trend and not bull_trend:
+        main_dir = "DOWN"
+    elif score0 > 0.12:
+        main_dir = "UP"
+    elif score0 < -0.12:
+        main_dir = "DOWN"
+    else:
+        main_dir = None
+
+    if main_dir is None:
+        return {"state": "WAIT", "direction": None, "confidence": 0, "reason": "الاتجاه الأساسي غير حاسم؛ لا نصنف التصحيح/الانعكاس."}
+
+    flow_flip = flow < -8 if main_dir == "UP" else flow > 8
+    flow_still = flow > -4 if main_dir == "UP" else flow < 4
+    momentum_flip = score0 < -0.12 if main_dir == "UP" else score0 > 0.12
+    forecast_flip = (score0 < -0.10 and score1 < 0) if main_dir == "UP" else (score0 > 0.10 and score1 > 0)
+    persistence = sum(1 for z in bars[-3:] if (z["close"] < z["open"] if main_dir == "UP" else z["close"] > z["open"]))
+
+    recent_lows = [z["low"] for z in bars[-6:]]
+    recent_highs = [z["high"] for z in bars[-6:]]
+    anchor_low = min(z["low"] for z in bars[-5:-1])
+    anchor_high = max(z["high"] for z in bars[-5:-1])
+    break_anchor_down = main_dir == "UP" and px < anchor_low - a * 0.08
+    break_anchor_up = main_dir == "DOWN" and px > anchor_high + a * 0.08
+    break_anchor = break_anchor_down or break_anchor_up
+
+    value_lost = (px < vp["poc"] - a * 0.12) if main_dir == "UP" else (px > vp["poc"] + a * 0.12)
+    value_extreme = (px >= vp["vah"] - a * 0.25) if main_dir == "UP" else (px <= vp["val"] + a * 0.25)
+
+    exhaustion = (value_extreme and (ms["slow"] or fd["bull"] or flow < 6)) if main_dir == "UP" \
+        else (value_extreme and (ms["slow"] or fd["bear"] or flow > -6))
+
+    reversal_score = 0
+    if break_anchor: reversal_score += 35
+    if flow_flip: reversal_score += 25
+    if momentum_flip: reversal_score += 15
+    if forecast_flip: reversal_score += 10
+    if value_lost: reversal_score += 10
+    if persistence >= 2: reversal_score += 10
+    if exhaustion: reversal_score += 5
+
+    counter_bars = sum(1 for z in bars[-3:] if (z["close"] < z["open"] if main_dir == "UP" else z["close"] > z["open"]))
+    correction_evidence = (counter_bars >= 1 or exhaustion) and not break_anchor and (flow_still or not flow_flip) and not forecast_flip
+    correction_score = 0
+    if correction_evidence: correction_score += 35
+    if exhaustion: correction_score += 25
+    if not break_anchor: correction_score += 20
+    if flow_still: correction_score += 10
+    if counter_bars >= 1: correction_score += 10
+
+    if reversal_score >= 70:
+        direction = "DOWN" if main_dir == "UP" else "UP"
+        return {"state": "REVERSAL", "direction": direction, "confidence": min(99, reversal_score),
+                "reason": f"انعكاس حقيقي عالي الثقة: كسر بنيوي {'✔' if break_anchor else '—'} + "
+                          f"انقلاب ضغط {'✔' if flow_flip else '—'} + استمرار {'✔' if persistence >= 2 else '—'}"
+                          f"{' + فقد POC' if value_lost else ''}."}
+    if correction_score >= 65:
+        return {"state": "CORRECTION", "direction": main_dir, "confidence": min(95, correction_score),
+                "reason": f"تصحيح داخل الاتجاه: الحركة المضادة لم تكسر البنية الرئيسية، والضغط/التوقع "
+                          f"الأساسي ما زال يحمي {'الصعود' if main_dir == 'UP' else 'الهبوط'}."}
+    if exhaustion or (value_extreme and (ms["slow"] or fd["bull"] or fd["bear"])):
+        return {"state": "MOVE_END", "direction": main_dir,
+                "confidence": min(90, 55 + (20 if exhaustion else 0) + (0 if break_anchor else 15)),
+                "reason": "نهاية/توقف محتملة للحركة الحالية قرب منطقة سوقية مهمة، لكن لا توجد أدلة كافية لتسميتها انعكاساً حقيقياً."}
+    return {"state": "CONTINUATION", "direction": main_dir, "confidence": 55,
+            "reason": f"الاتجاه {'صاعد' if main_dir == 'UP' else 'هابط'} ما زال قائماً؛ لم يظهر بعد تصحيح أو انعكاس عالي الثقة."}
+
+
 def compute_engine(candles, px, symbol_state):
     work = candles
     c = [x["close"] for x in work]
@@ -781,13 +868,32 @@ def compute_engine(candles, px, symbol_state):
     elif inside:
         reason = "السعر داخل منطقة القيمة؛ لا دخول من المنتصف."
 
+    # مصنّف مسار الحركة — يمنع تحويل كل تصحيح بسيط لانعكاس، ويبدل القرار
+    # فقط عند انعكاس حقيقي (كسر بنيوي + انقلاب ضغط + استمرار).
+    path_state = classify_move_path(work, px, a, vp, flow, raw_f, macro_structure, imm, fd, ms)
+    if path_state["state"] == "REVERSAL":
+        new_decision = "BUY" if path_state["direction"] == "UP" else "SELL"
+        decision = new_decision
+        reason = f"🔄 {path_state['reason']} تم تغيير مسار التحليل إلى {new_decision}."
+    elif path_state["state"] == "CORRECTION":
+        keep = "BUY" if path_state["direction"] == "UP" else "SELL"
+        if (keep == "BUY" and decision == "SELL") or (keep == "SELL" and decision == "BUY"):
+            decision = "WAIT"
+            reason = f"↩️ {path_state['reason']} لذلك لا نعكس الاتجاه بسبب التصحيح؛ ننتظر استمرار {keep}."
+        elif decision == "WAIT" or "WATCH" in decision:
+            reason = f"↩️ {path_state['reason']} الاتجاه الرئيسي لم ينتهِ بعد."
+    elif path_state["state"] == "MOVE_END":
+        if decision in ("BUY", "SELL"):
+            decision = "WAIT"
+            reason = f"⏸️ {path_state['reason']} لا نغيّر الاتجاه قبل ظهور دليل انعكاس حقيقي."
+
     liquidity = institutional_liquidity(work, vp, a, px)
     plan = market_plan(a, px, decision, liquidity)
 
     return {
         "price": px, "last_close": last, "atr": a, "flow": flow, "vp": vp,
         "structure": structure, "macro_structure": macro_structure,
-        "decision": decision, "reason": reason, "timing": timing,
+        "decision": decision, "reason": reason, "timing": timing, "path_state": path_state,
         "forecast": raw_f, "liquidity": liquidity, "plan": plan,
         "bull_exhaust": bull_exhaust, "bear_exhaust": bear_exhaust,
         "failed_bull": failed_bull, "failed_bear": failed_bear,
@@ -855,6 +961,7 @@ def format_entry_signal(label, x):
         f"SL: {plan['sl']:,.2f}\n"
         f"{tp_lines}\n"
         f"ATR: {x['atr']:.2f} | Order Flow: {x['flow']:+.1f} | البنية: {x['structure']}\n"
+        f"مسار الحركة: {x['path_state']['state']} ({x['path_state']['confidence']}%)\n"
         f"السبب: {x['reason']}\n\n"
         f"⚠️ إشارة تحليلية (Volume Profile + Order Flow + Break/Retest/Confirm)، "
         f"ليست ضمان نجاح ولا نصيحة مالية. التنفيذ يدوي بقرارك."
@@ -871,6 +978,7 @@ def format_status_update(label, x):
         f"البنية: {x['structure']} (EMA: {x['macro_structure']})\n"
         f"القرار الحالي: {x['decision']}\n"
         f"المرحلة: {x['timing'].get('stage', '—')}\n"
+        f"مسار الحركة: {x['path_state']['state']} ({x['path_state']['confidence']}%)\n"
         f"Order Flow: {x['flow']:+.1f} | ATR: {x['atr']:.2f}\n\n"
         f"{x['reason']}"
     )
