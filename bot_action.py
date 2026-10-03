@@ -1,81 +1,58 @@
 """
-بوت إشارات اختراق متعدد الفلاتر (Breakout Signal Bot) — يرسل توصية عبر
-تيليجرام فقط، بدون تنفيذ أي صفقة فعلية.
+XAU Market Microstructure Engine V21 — بوت تيليجرام مبني بالكامل على المحرك
+اللي بعثه المستخدم (XAU_V21_PWA_MarketTargets.zip). هذا استبدال كامل للكود
+القديم، ماشي إضافة — كل الاستراتيجيات السابقة (Breakout, Pullback, Reversal,
+S/R, MPE, VAB, ZLR...) تم حذفها بالكامل كيما طُلب.
 
-الفلاتر المطبّقة قبل إرسال أي إشارة:
-  1. اختراق قمة/قاع سابق (Breakout أساسي)
-  2. تأكيد استمرار الاختراق (Confirm Bars)
-  3. اتجاه المتوسط المتحرك الأسي EMA200 (فلتر الاتجاه العام)
-  4. تحقق الفريم الأعلى (Higher Timeframe Validation) — اتجاه الساعة يتفق
-  5. مؤشر RSI (تجنب مناطق التشبع الشرائي/البيعي)
-  6. حجم التداول (Volume) أعلى من المتوسط
-  7. فلتر الجسم/الظل (Body & Wick) — الشمعة ذات جسم حقيقي قوي
-  8. ارتباط الذهب بالبتكوين (Correlation Check) — تحذير فقط، لا يمنع الإشارة
-  9. قاطع الدائرة (Circuit Breaker) — يوقف الإشارات مؤقتاً بعد خسائر متتالية
+منقول من JavaScript لبايثون بأمانة قدر الإمكان، نفس المعادلات:
+  - Volume Profile (POC/VAH/VAL)               → priceBins()
+  - Order Flow تقريبي (Chaikin-style)           → qflow()
+  - بنية السوق اللحظية (Swing/Displacement)     → immediateStructure()
+  - تنبؤ 3 شموع بنظام نقاط مركّب                → forecast()
+  - إجهاد وفشل الاختراق (Exhaustion/Failed)      → bullExhaust/bearExhaust...
+  - مناطق سيولة مؤسساتية (قمم/قيعان متقاربة)     → institutionalLiquidity()
+  - خطة صفقة من مناطق سيولة حقيقية (لا نسب ثابتة) → marketPlan()
+  - آلة حالة Break → Retest → Confirm            → update_timing() (محفوظة
+    بين كل تشغيلة عبر state.json بدل متغير JS في الذاكرة)
 
-SL/TP يُحسبان ديناميكياً بواسطة ATR بدل نسبة ثابتة.
-
-⚠️ هذا البوت لا يضمن نجاح أي صفقة. كل ما سبق يقلل نسبة الإشارات
-الخاطئة فقط، ولا يلغيها. التداول يحمل مخاطرة دائماً.
-
-مصدر البيانات: Kraken Public API (لا يحتاج مفتاح API، ولا يحظر أي
-نطاق جغرافي — بعكس Binance/Bybit اللي يحظرو IPs أمريكية اللي تشتغل
-منها سيرفرات GitHub Actions الافتراضية، وبعكس CryptoCompare اللي
-سكرات خدمتها المجانية).
+ما تم إسقاطه عمداً (بصراحة، بلا تمويه):
+  - طبقة "Live Tick Shift" الأصلية (liveBearShift/liveBullShift/liveMove)
+    كانت مبنية على تدفق Ticks مستمر داخل متصفح مفتوح طول الوقت. بوتنا يخدم
+    دقيقة بدقيقة عبر GitHub Actions بلا اتصال مستمر، فتم تقريبها باستدعاء
+    Kraken Ticker (آخر سعر تداول حقيقي لحظة التشغيل) مقارنة بآخر شمعة
+    مغلقة — تقريب معقول، ماشي تدفق Ticks حي حقيقي.
+  - التقويم الاقتصادي (Macro Calendar) كان Hardcoded بتواريخ 2026 محددة في
+    الملف الأصلي، ميزة واجهة فقط (عرض على الشاشة)، ما تم نقلها.
+  - تتبع الدقة كان عبر localStorage (متصفح)؛ استبدلناه بتتبع مشابه داخل
+    state.json (لكل أفق تنبؤ +1/+2/+3).
+  - مصدر البيانات: الملف الأصلي يستعمل Biquote.io (XAU/USD حقيقي). ما
+    قدرناش نتأكد من توفر/استقرار هذا الـ API من سيرفرات GitHub Actions
+    (بلا توثيق رسمي)، فبقينا على Kraken (PAXG/USD) كيما كان بوتنا القديم.
 """
+
 import os
-import sys
 import json
 import requests
 from datetime import datetime, timezone
 
 # ------------------------------------------------------------------
-# الإعدادات (عبر متغيرات البيئة، مع قيم افتراضية معقولة)
+# الإعدادات
 # ------------------------------------------------------------------
-# صيغة كل رمز: PAIR|LABEL — عدة رموز مفصولة بفاصلة
-# PAIR = رمز الزوج بصيغة Kraken (مثال: XBTUSD لبتكوين، PAXGUSD للذهب)
-# ملاحظة: الافتراضي دروك الذهب وحدو فقط (بطلب المستخدم — تركيز أعلى)
-BOT_SYMBOLS = os.environ.get(
-    "BOT_SYMBOLS", "PAXGUSD|GOLD (PAXG)"
-)
-
-INTERVAL = os.environ.get("BOT_INTERVAL", "15m")          # الفريم الأساسي
-HTF_INTERVAL = os.environ.get("BOT_HTF_INTERVAL", "1h")   # الفريم الأعلى للتحقق
-LOOKBACK = int(os.environ.get("BOT_LOOKBACK", "24"))
-CONFIRM_BARS = int(os.environ.get("BOT_CONFIRM_BARS", "2"))
-EMA_PERIOD = int(os.environ.get("BOT_EMA_PERIOD", "200"))
-ATR_PERIOD = int(os.environ.get("BOT_ATR_PERIOD", "14"))
-RSI_PERIOD = int(os.environ.get("BOT_RSI_PERIOD", "14"))
-VOLUME_MULT = float(os.environ.get("BOT_VOLUME_MULT", "1.2"))
-BODY_RATIO_MIN = float(os.environ.get("BOT_BODY_RATIO_MIN", "0.5"))
-ATR_SL_MULT = float(os.environ.get("BOT_ATR_SL_MULT", "1.5"))
-ATR_TP1_MULT = float(os.environ.get("BOT_ATR_TP1_MULT", "1.5"))
-ATR_TP2_MULT = float(os.environ.get("BOT_ATR_TP2_MULT", "3.0"))
-ALLOW_COUNTER_TREND = os.environ.get("BOT_ALLOW_COUNTER_TREND", "1") == "1"
-SR_SIGNAL = os.environ.get("BOT_SR_SIGNAL", "1") == "1"
-SR_PIVOT_LENGTH = int(os.environ.get("BOT_SR_PIVOT_LENGTH", "5"))
-SR_TOLERANCE_ATR = float(os.environ.get("BOT_SR_TOLERANCE_ATR", "0.15"))
-MPE_SIGNAL = os.environ.get("BOT_MPE_SIGNAL", "1") == "1"
-MPE_LOOKBACK = int(os.environ.get("BOT_MPE_LOOKBACK", "30"))
-MPE_SCORE_THRESHOLD = int(os.environ.get("BOT_MPE_SCORE_THRESHOLD", "5"))
-MPE_VP_BINS = int(os.environ.get("BOT_MPE_VP_BINS", "20"))
-VAB_SIGNAL = os.environ.get("BOT_VAB_SIGNAL", "1") == "1"
-VAB_LOOKBACK = int(os.environ.get("BOT_VAB_LOOKBACK", "40"))
-HOURLY_UPDATE_MINUTES = int(os.environ.get("BOT_HOURLY_UPDATE_MINUTES", "60"))
+BOT_SYMBOLS = os.environ.get("BOT_SYMBOLS", "PAXGUSD|GOLD (PAXG)")
+INTERVAL = os.environ.get("BOT_INTERVAL", "1m")
+LOOKBACK_BARS = int(os.environ.get("BOT_LOOKBACK_BARS", "80"))  # نفس n=80 الأصلي
+WEEKEND_FILTER = os.environ.get("BOT_WEEKEND_FILTER", "1") == "1"
 MAX_CONSECUTIVE_LOSSES = int(os.environ.get("BOT_MAX_CONSECUTIVE_LOSSES", "3"))
 CIRCUIT_BREAKER_PAUSE_HOURS = float(os.environ.get("BOT_CIRCUIT_BREAKER_PAUSE_HOURS", "4"))
+HOURLY_UPDATE_MINUTES = int(os.environ.get("BOT_HOURLY_UPDATE_MINUTES", "60"))
 
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
 
 STATE_FILE = "state.json"
 KRAKEN_OHLC_URL = "https://api.kraken.com/0/public/OHLC"
-
-# تحويل الفريم إلى عدد الدقائق اللي يفهمها Kraken
-KRAKEN_INTERVAL_MINUTES = {
-    "1m": 1, "5m": 5, "15m": 15, "30m": 30,
-    "1h": 60, "4h": 240, "1d": 1440,
-}
+KRAKEN_TICKER_URL = "https://api.kraken.com/0/public/Ticker"
+KRAKEN_INTERVAL_MINUTES = {"1m": 1, "5m": 5, "15m": 15, "30m": 30, "1h": 60}
 
 
 # ------------------------------------------------------------------
@@ -92,11 +69,7 @@ def notify(msg):
         return
     try:
         url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-        requests.post(
-            url,
-            json={"chat_id": TELEGRAM_CHAT_ID, "text": msg, "parse_mode": "HTML"},
-            timeout=10,
-        )
+        requests.post(url, json={"chat_id": TELEGRAM_CHAT_ID, "text": msg, "parse_mode": "HTML"}, timeout=10)
     except Exception as e:
         log(f"تعذر إرسال إشعار تليجرام: {e}")
 
@@ -130,739 +103,717 @@ def parse_symbols():
     return result
 
 
+def is_forex_market_closed(now=None):
+    """سوق الذهب الحقيقي يقفل من جمعة 21:00 UTC لحد أحد 22:00 UTC تقريباً."""
+    now = now or datetime.now(timezone.utc)
+    weekday = now.weekday()
+    if weekday == 4 and now.hour >= 21:
+        return True
+    if weekday == 5:
+        return True
+    if weekday == 6 and now.hour < 22:
+        return True
+    return False
+
+
 # ------------------------------------------------------------------
 # جلب البيانات من Kraken
 # ------------------------------------------------------------------
 def get_klines(pair, interval, limit=300):
-    """
-    يرجع قائمة شموع: كل شمعة dict فيها open, high, low, close, volume.
-    pair: رمز الزوج بصيغة Kraken (مثال: XBTUSD).
-    interval: "15m" أو "1h" (الفترتان المستخدمتان بهذا البوت فقط).
-    """
     minutes = KRAKEN_INTERVAL_MINUTES.get(interval)
     if minutes is None:
         raise ValueError(f"فترة زمنية غير مدعومة: {interval}")
-
-    params = {"pair": pair, "interval": minutes}
-    resp = requests.get(KRAKEN_OHLC_URL, params=params, timeout=15)
+    resp = requests.get(KRAKEN_OHLC_URL, params={"pair": pair, "interval": minutes}, timeout=15)
     resp.raise_for_status()
     raw = resp.json()
-
     if raw.get("error"):
-        raise RuntimeError("; ".join(raw["error"]) or "خطأ غير معروف من Kraken")
-
+        raise RuntimeError("; ".join(raw["error"]) or "خطأ من Kraken")
     result = raw.get("result", {})
-    # النتيجة تجي تحت مفتاح باسم الزوج الداخلي متاع Kraken (ماشي بالضرورة
-    # نفس النص اللي بعثناه)، فنلقاو أول مفتاح غير "last"
     ohlc_key = next((k for k in result if k != "last"), None)
     if not ohlc_key:
-        raise RuntimeError(f"لا توجد بيانات لهذا الزوج: {pair}")
-
-    candles = []
-    for row in result[ohlc_key]:
-        candles.append({
-            "open_time": int(row[0]),
-            "open": float(row[1]),
-            "high": float(row[2]),
-            "low": float(row[3]),
-            "close": float(row[4]),
-            "volume": float(row[6]),
-        })
-
+        raise RuntimeError(f"لا توجد بيانات: {pair}")
+    candles = [
+        {
+            "open_time": int(row[0]), "open": float(row[1]), "high": float(row[2]),
+            "low": float(row[3]), "close": float(row[4]), "volume": float(row[6]),
+        }
+        for row in result[ohlc_key]
+    ]
     return candles[-limit:] if limit else candles
 
 
+def get_ticker_price(pair):
+    """آخر سعر تداول حقيقي لحظة التشغيل — تقريبنا لـ 'px' (السعر الحي) في الملف الأصلي."""
+    try:
+        resp = requests.get(KRAKEN_TICKER_URL, params={"pair": pair}, timeout=10)
+        resp.raise_for_status()
+        raw = resp.json()
+        if raw.get("error"):
+            return None
+        result = raw.get("result", {})
+        key = next(iter(result), None)
+        if not key:
+            return None
+        return float(result[key]["c"][0])
+    except Exception as e:
+        log(f"تعذر جلب سعر Ticker: {e}")
+        return None
+
+
 # ------------------------------------------------------------------
-# المؤشرات الفنية
+# أدوات رياضية أساسية (منقولة حرفياً من الملف الأصلي)
 # ------------------------------------------------------------------
-def calc_ema(values, period):
-    if len(values) < period:
-        period = len(values)
-    if period == 0:
-        return values[-1] if values else 0
+def mean(a):
+    return sum(a) / len(a) if a else 0.0
+
+
+def ema(values, period):
+    if not values:
+        return 0.0
     k = 2 / (period + 1)
-    ema = sum(values[:period]) / period
-    for v in values[period:]:
-        ema = v * k + ema * (1 - k)
-    return ema
+    e = values[0]
+    for v in values[1:]:
+        e = v * k + e * (1 - k)
+    return e
 
 
-def calc_rsi(closes, period=14):
-    if len(closes) < period + 1:
-        return 50.0
-    gains, losses = [], []
-    for i in range(-period, 0):
-        diff = closes[i] - closes[i - 1]
-        if diff >= 0:
-            gains.append(diff)
-        else:
-            losses.append(-diff)
-    avg_gain = sum(gains) / period
-    avg_loss = sum(losses) / period
-    if avg_loss == 0:
-        return 100.0
-    rs = avg_gain / avg_loss
-    return 100 - (100 / (1 + rs))
-
-
-def calc_ema_series(values, period):
-    """يرجع سلسلة كاملة من قيم EMA (بدل قيمة أخيرة فقط) — لازمة لحساب MACD."""
-    if len(values) < period:
-        return []
-    k = 2 / (period + 1)
-    ema = sum(values[:period]) / period
-    series = [ema]
-    for v in values[period:]:
-        ema = v * k + ema * (1 - k)
-        series.append(ema)
-    return series
-
-
-def calc_macd_series(closes, fast=12, slow=26, signal=9):
-    """يرجع (macd_line, signal_line) كسلسلتين متزامنتين بالطول."""
-    ema_fast = calc_ema_series(closes, fast)
-    ema_slow = calc_ema_series(closes, slow)
-    if not ema_fast or not ema_slow:
-        return [], []
-    ema_fast_aligned = ema_fast[-len(ema_slow):]
-    macd_line = [f - s for f, s in zip(ema_fast_aligned, ema_slow)]
-    signal_line_full = calc_ema_series(macd_line, signal)
-    if not signal_line_full:
-        return macd_line, []
-    macd_aligned = macd_line[-len(signal_line_full):]
-    return macd_aligned, signal_line_full
-
-
-def detect_zero_line_reversal(macd_line, trend_direction, lookback=5, near_zero_ratio=0.3):
-    """
-    يكتشف نمط ارتداد الخط الصفري (Zero Line Reversal): ماكد يقترب من الصفر
-    بنفس جهة الترند العام دون أن يعبره بالكامل، ثم يرتد مبتعداً عنه —
-    يعتبر تأكيداً على استمرار الاتجاه، وليس انعكاساً.
-    """
-    if len(macd_line) < lookback + 1:
-        return False
-    recent = macd_line[-lookback:]
-    span = max(abs(v) for v in recent) or 1e-9
-    near_zero_threshold = span * near_zero_ratio
-
-    if trend_direction == "buy":
-        if any(v <= 0 for v in recent):
-            return False  # لازم يبقى فوق الصفر طول الفترة (بدون عبور)
-        min_val = min(recent[:-1])
-        if min_val > near_zero_threshold:
-            return False  # ما اقترب كفاية من الصفر
-        return recent[-1] > recent[-2] and recent[-1] > min_val
-    else:
-        if any(v >= 0 for v in recent):
-            return False
-        max_val = max(recent[:-1])
-        if abs(max_val) > near_zero_threshold:
-            return False
-        return recent[-1] < recent[-2] and recent[-1] < max_val
-
-
-def calc_atr(candles, period=14):
+def atr(candles, period=14):
     if len(candles) < period + 1:
-        period = len(candles) - 1
-    if period < 1:
         return 0.0
     trs = []
-    for i in range(-period, 0):
-        high = candles[i]["high"]
-        low = candles[i]["low"]
-        prev_close = candles[i - 1]["close"]
-        tr = max(high - low, abs(high - prev_close), abs(low - prev_close))
-        trs.append(tr)
-    return sum(trs) / len(trs)
-
-
-# ------------------------------------------------------------------
-# الفلاتر
-# ------------------------------------------------------------------
-def find_breakout_level(closes):
-    if len(closes) < LOOKBACK + 2:
-        return None, None, None
-    current = closes[-1]
-    window = closes[-1 - LOOKBACK:-1]
-    highest = max(window)
-    lowest = min(window)
-    if current > highest:
-        return "buy", highest, lowest
-    if current < lowest:
-        return "sell", highest, lowest
-    return None, highest, lowest
-
-
-def is_breakout_confirmed(closes, direction):
-    needed = LOOKBACK + CONFIRM_BARS + 1
-    if len(closes) < needed:
-        return False
-    for i in range(CONFIRM_BARS):
-        idx = -1 - i
-        window = closes[idx - LOOKBACK:idx]
-        level_high = max(window)
-        level_low = min(window)
-        price = closes[idx]
-        if direction == "buy" and price <= level_high:
-            return False
-        if direction == "sell" and price >= level_low:
-            return False
-    return True
-
-
-def check_body_wick(candle, direction):
-    """يتحقق إن جسم الشمعة قوي نسبة للظل — حركة حقيقية لا مجرد رفرفة."""
-    body = abs(candle["close"] - candle["open"])
-    full_range = candle["high"] - candle["low"]
-    if full_range == 0:
-        return False
-    body_ratio = body / full_range
-    is_bullish_body = candle["close"] >= candle["open"]
-    if direction == "buy" and not is_bullish_body:
-        return False
-    if direction == "sell" and is_bullish_body:
-        return False
-    return body_ratio >= BODY_RATIO_MIN
-
-
-def check_volume(candles, mult=None):
-    if len(candles) < LOOKBACK + 1:
-        return True  # بيانات غير كافية، لا نمنع الإشارة بسبب هذا وحده
-    volumes = [c["volume"] for c in candles[-1 - LOOKBACK:-1]]
-    avg_volume = sum(volumes) / len(volumes)
-    current_volume = candles[-1]["volume"]
-    if avg_volume == 0:
-        return True
-    return current_volume >= avg_volume * (mult if mult is not None else VOLUME_MULT)
-
-
-def check_higher_timeframe(symbol, direction):
-    try:
-        htf_candles = get_klines(symbol, HTF_INTERVAL, limit=EMA_PERIOD + 5)
-        htf_closes = [c["close"] for c in htf_candles]
-        htf_ema = calc_ema(htf_closes, EMA_PERIOD)
-        htf_price = htf_closes[-1]
-        if direction == "buy":
-            return htf_price > htf_ema
-        return htf_price < htf_ema
-    except Exception as e:
-        log(f"تعذر التحقق من الفريم الأعلى: {e} — سيتم تجاوز هذا الفلتر بحذر")
-        return True
-
-
-def check_correlation(btc_closes, gold_closes, direction, points=10):
-    """يقارن اتجاه حركة البتكوين مقابل الذهب — تحذير فقط، لا يمنع الإشارة."""
-    if len(btc_closes) < points + 1 or len(gold_closes) < points + 1:
-        return None
-    btc_change = (btc_closes[-1] - btc_closes[-1 - points]) / btc_closes[-1 - points]
-    gold_change = (gold_closes[-1] - gold_closes[-1 - points]) / gold_closes[-1 - points]
-    same_direction = (btc_change > 0) == (gold_change > 0)
-    return {
-        "btc_change_pct": btc_change * 100,
-        "gold_change_pct": gold_change * 100,
-        "aligned": same_direction,
-    }
-
-
-def evaluate_zlr_signal(closes, candles, ema):
-    """
-    مصدر إشارة ثانٍ مستقل عن الاختراق: يكتشف نمط ارتداد الخط الصفري
-    لمؤشر MACD في اتجاه الترند العام (EMA200)، مع تطبيق فلاتر RSI،
-    حجم التداول، وجسم الشمعة كتأكيد — بدون اشتراط اختراق قمة/قاع.
-    """
-    trend_direction = "buy" if closes[-1] > ema else "sell"
-
-    if len(closes) < 35:
-        return None, "بيانات غير كافية لحساب MACD (ZLR)"
-
-    macd_line, signal_line = calc_macd_series(closes)
-    if not macd_line:
-        return None, "تعذر حساب MACD"
-
-    if not detect_zero_line_reversal(macd_line, trend_direction):
-        return None, None  # لا يوجد نمط حالياً — ليس خطأ، فقط لا إشارة
-
-    rsi = calc_rsi(closes, RSI_PERIOD)
-    if trend_direction == "buy" and rsi >= 70:
-        return None, f"ZLR صاعد لكن RSI مرتفع ({rsi:.1f})"
-    if trend_direction == "sell" and rsi <= 30:
-        return None, f"ZLR هابط لكن RSI منخفض ({rsi:.1f})"
-    if not check_volume(candles):
-        return None, "ZLR لكن حجم التداول ضعيف"
-    if not check_body_wick(candles[-1], trend_direction):
-        return None, "ZLR لكن جسم الشمعة ضعيف"
-
-    return trend_direction, "نمط ارتداد الخط الصفري (MACD ZLR) مؤكد باتجاه الترند العام"
-
-
-def evaluate_pullback_signal(closes, candles, ema, atr):
-    """
-    مصدر إشارة ثالث (Pullback): يُستخدم كي يكون RSI متطرف (مباع/مشترى بزيادة)
-    فيمنع الاختراق و ZLR. بدل ما يبقى ينتظر، يستنى ارتداد لـ EMA20
-    (أو RSI يرجع لمنطقة 40-60) ثم يدخل مع الاتجاه العام (EMA200)
-    بشرط شمعة تأكيد في اتجاه الصفقة.
-    """
-    if len(closes) < 40:
-        return None, None
-
-    trend_direction = "buy" if closes[-1] > ema else "sell"
-    ema20 = calc_ema(closes, 20)
-    rsi_now = calc_rsi(closes, RSI_PERIOD)
-    last = candles[-1]
-
-    # RSI خلال آخر 12 شمعة — لازم كان متطرف في اتجاه الترند
-    rsis = [calc_rsi(closes[:len(closes) - k], RSI_PERIOD) for k in range(0, 12)]
-
-    if trend_direction == "sell":
-        was_extreme = min(rsis) <= 30
-        # لازم السعر يكون قريب فعلاً من EMA20 (جهة صحيحة)، مش بعيد في قمة موجة
-        near_ema20 = ema20 - 0.4 * atr <= closes[-1] <= ema20 + 0.2 * atr
-        rsi_not_too_recovered = rsi_now <= 55  # يمنع الدخول كي RSI يكون طالع بزاف (قرب قمة)
-        candle_ok = last["close"] < last["open"]
-    else:
-        was_extreme = max(rsis) >= 70
-        near_ema20 = ema20 - 0.2 * atr <= closes[-1] <= ema20 + 0.4 * atr
-        rsi_not_too_recovered = rsi_now >= 45  # يمنع الدخول كي RSI يكون نازل بزاف (قرب قاع)
-        candle_ok = last["close"] > last["open"]
-
-    if not was_extreme:
-        return None, None
-    if not near_ema20:
-        return None, "Pullback: ننتظر السعر يرجع أقرب فعلاً لـ EMA20"
-    if not rsi_not_too_recovered:
-        return None, "Pullback: RSI ابتعد بزاف عن منطقة الارتداد، فات وقت الدخول"
-    # السعر لازم يبقى في الجهة الصحيحة من EMA200
-    if not candle_ok:
-        return None, "Pullback: ننتظر شمعة تأكيد في اتجاه الترند"
-    if trend_direction == "sell" and rsi_now <= 30:
-        return None, None
-    if trend_direction == "buy" and rsi_now >= 70:
-        return None, None
-
-    return trend_direction, "Pullback بعد تطرف RSI — دخول مع الترند العام"
-
-
-def calc_adx(candles, period=14):
-    """
-    قوة الاتجاه (ADX) — ما بين 0 و100. تحت 20 يعني سوق عرضي بلا اتجاه واضح،
-    فوق 25 يعني اتجاه قوي يستاهل المتابعة.
-    """
-    if len(candles) < period * 2:
-        return 0.0
-    plus_dm, minus_dm, trs = [], [], []
     for i in range(1, len(candles)):
-        up_move = candles[i]["high"] - candles[i - 1]["high"]
-        down_move = candles[i - 1]["low"] - candles[i]["low"]
-        plus_dm.append(up_move if (up_move > down_move and up_move > 0) else 0.0)
-        minus_dm.append(down_move if (down_move > up_move and down_move > 0) else 0.0)
         tr = max(
             candles[i]["high"] - candles[i]["low"],
             abs(candles[i]["high"] - candles[i - 1]["close"]),
             abs(candles[i]["low"] - candles[i - 1]["close"]),
         )
         trs.append(tr)
+    return mean(trs[-period:])
 
-    def smooth(values, period):
-        if len(values) < period:
-            return []
-        first = sum(values[:period])
-        out = [first]
-        for v in values[period:]:
-            out.append(out[-1] - (out[-1] / period) + v)
-        return out
 
-    tr_s = smooth(trs, period)
-    plus_s = smooth(plus_dm, period)
-    minus_s = smooth(minus_dm, period)
-    if not tr_s or not plus_s or not minus_s:
+def slope(values, n=8):
+    if len(values) < n:
         return 0.0
-
-    n = min(len(tr_s), len(plus_s), len(minus_s))
-    dx_values = []
-    for i in range(n):
-        tr_v = tr_s[i] or 1e-9
-        plus_di = 100 * (plus_s[i] / tr_v)
-        minus_di = 100 * (minus_s[i] / tr_v)
-        denom = (plus_di + minus_di) or 1e-9
-        dx = 100 * abs(plus_di - minus_di) / denom
-        dx_values.append(dx)
-
-    if not dx_values:
-        return 0.0
-    tail = dx_values[-period:] if len(dx_values) >= period else dx_values
-    return sum(tail) / len(tail)
+    x = values[-n:]
+    mx = (n - 1) / 2
+    my = mean(x)
+    num = sum((i - mx) * (x[i] - my) for i in range(n))
+    den = sum((i - mx) ** 2 for i in range(n))
+    return num / den if den else 0.0
 
 
-def calc_volume_profile(candles, bins=20, value_area_pct=0.70):
-    """
-    Volume Profile — يوزّع حجم التداول على مستويات سعرية داخل آخر شموع.
-    يرجع POC (Point of Control — أكبر تركّز حجم)، ومنطقة القيمة كاملة:
-    VAH (Value Area High) و VAL (Value Area Low) — الحدود اللي تحوي
-    70% من الحجم حول الـ POC (نفس منطق Volume Profile الاحترافي).
-    """
-    if len(candles) < 5:
-        return None
+def qflow(candles):
+    """ضغط تدفق أوامر تقريبي (Chaikin-style) — نفس معادلة qflow() الأصلية."""
+    den = num = 0.0
+    for c in candles[-20:]:
+        r = max(c["high"] - c["low"], 1e-9)
+        body = (c["close"] - c["open"]) / r
+        w = c.get("volume", 1) or 1
+        num += body * w
+        den += w
+    return max(-100.0, min(100.0, 100 * num / den)) if den else 0.0
+
+
+def price_bins(candles):
+    """Volume Profile: POC + VAH + VAL — نفس معادلة priceBins() الأصلية (40 بن، 70% منطقة قيمة)."""
     lo = min(c["low"] for c in candles)
     hi = max(c["high"] for c in candles)
-    if hi <= lo:
-        return None
-    bin_size = (hi - lo) / bins
-    volumes = [0.0] * bins
-
+    bins = 40
+    step = (hi - lo) / bins or 0.1
+    v = [0.0] * bins
     for c in candles:
-        mid = (c["high"] + c["low"]) / 2
-        idx = int((mid - lo) / bin_size)
-        idx = max(0, min(bins - 1, idx))
-        volumes[idx] += c["volume"]
+        p = (c["high"] + c["low"] + c["close"]) / 3
+        idx = max(0, min(bins - 1, int((p - lo) / step)))
+        v[idx] += c.get("volume", 1) or 1
+    poc_idx = v.index(max(v))
+    poc = lo + (poc_idx + 0.5) * step
+    total = sum(v)
+    target = total * 0.70
+    order = sorted(range(bins), key=lambda i: -v[i])
+    acc, sel = 0.0, []
+    for i in order:
+        if acc >= target:
+            break
+        acc += v[i]
+        sel.append(i)
+    val = lo + min(sel) * step
+    vah = lo + (max(sel) + 1) * step
+    return {"lo": lo, "hi": hi, "step": step, "poc": poc, "val": val, "vah": vah}
 
-    total_volume = sum(volumes) or 1e-9
-    poc_idx = volumes.index(max(volumes))
-    poc_price = lo + (poc_idx + 0.5) * bin_size
 
-    # بناء منطقة القيمة: نوسّع من الـ POC للخارج (يمين/يسار) نختار الأكبر حجم
-    # في كل خطوة، حتى نوصل لنسبة value_area_pct من الحجم الكلي.
-    included = {poc_idx}
-    acc_volume = volumes[poc_idx]
-    low_i, high_i = poc_idx, poc_idx
-    while acc_volume < total_volume * value_area_pct and (low_i > 0 or high_i < bins - 1):
-        vol_below = volumes[low_i - 1] if low_i > 0 else -1
-        vol_above = volumes[high_i + 1] if high_i < bins - 1 else -1
-        if vol_above >= vol_below:
-            high_i += 1
-            acc_volume += volumes[high_i]
-        else:
-            low_i -= 1
-            acc_volume += volumes[low_i]
-        included.add(low_i)
-        included.add(high_i)
+def wick_info(c):
+    r = max(c["high"] - c["low"], 1e-9)
+    body = abs(c["close"] - c["open"])
+    upper = c["high"] - max(c["open"], c["close"])
+    lower = min(c["open"], c["close"]) - c["low"]
+    return {"r": r, "body": body, "upper": upper, "lower": lower,
+            "upper_pct": upper / r, "lower_pct": lower / r, "body_pct": body / r}
 
-    val_price = lo + low_i * bin_size
-    vah_price = lo + (high_i + 1) * bin_size
 
+def flow_divergence(candles):
+    c = [x["close"] for x in candles]
+    n = min(6, len(c))
+    if n < 6:
+        return {"bull": False, "bear": False}
+    pc = c[-1] - c[-n]
+    f1 = qflow(candles[-n:])
+    f2 = qflow(candles[-min(12, len(candles)):-n]) if len(candles) > n else 0.0
+    return {"bull": pc > 0 and f1 < f2 - 8, "bear": pc < 0 and f1 > f2 + 8}
+
+
+def momentum_state(candles):
+    c = [x["close"] for x in candles]
+    a = atr(candles, 14) or 1
+    if len(c) < 10:
+        return {"slow": False, "accel": 0.0}
+    s1 = slope(c[-5:], 5) / a
+    s2 = slope(c[-10:-5], 5) / a
+    slow = (s1 > 0 and s2 > 0 and s1 < s2 * 0.55) or (s1 < 0 and s2 < 0 and s1 > s2 * 0.55)
+    return {"slow": slow, "accel": s1 - s2}
+
+
+def range_state(candles, vp, a):
+    z = candles[-6:]
+    if len(z) < 5:
+        return {"consolidating": False, "above": False, "below": False, "range": 0, "expansion": False}
+    highs = [x["high"] for x in z]
+    lows = [x["low"] for x in z]
+    rng = max(highs) - min(lows)
+    bodies = [abs(x["close"] - x["open"]) for x in z]
+    avg_body = mean(bodies)
+    avg_range = mean([x["high"] - x["low"] for x in z])
+    small = rng <= max(a * 1.35, 0.8) and avg_body <= max(a * 0.42, 0.25) and avg_range <= max(a * 0.75, 0.45)
+    last = z[-1]
+    above = last["close"] > vp["vah"]
+    below = last["close"] < vp["val"]
+    expansion = (last["high"] - last["low"]) > max(avg_range * 1.25, a * 0.75)
+    return {"consolidating": small, "above": above, "below": below, "range": rng, "expansion": expansion}
+
+
+def rejection_at(candles, level, side):
+    z = candles[-1]
+    w = wick_info(z)
+    if side == "upper":
+        return z["high"] >= level and w["upper_pct"] >= 0.38 and z["close"] < level + w["r"] * 0.15
+    return z["low"] <= level and w["lower_pct"] >= 0.38 and z["close"] > level - w["r"] * 0.15
+
+
+def immediate_structure(candles, a):
+    """تحول بنية لحظي (HH/HL أو LH/LL أو كسر Swing) — نفس immediateStructure() الأصلية."""
+    if len(candles) < 5:
+        return {"bull": False, "bear": False, "level": None, "score": 0, "reason": "بيانات قصيرة"}
+    z = candles[-5:]
+    h = [x["high"] for x in z]
+    l = [x["low"] for x in z]
+    c = [x["close"] for x in z]
+    bear_seq = h[2] < h[1] and h[3] <= h[2] and l[2] < l[1] and l[3] <= l[2]
+    bull_seq = l[2] > l[1] and l[3] >= l[2] and h[2] > h[1] and h[3] >= h[2]
+    prior_low = min(l[0], l[1], l[2])
+    prior_high = max(h[0], h[1], h[2])
+    break_bear = z[4]["close"] < prior_low or (z[3]["close"] < prior_low and z[4]["close"] <= z[3]["close"])
+    break_bull = z[4]["close"] > prior_high or (z[3]["close"] > prior_high and z[4]["close"] >= z[3]["close"])
+    body4, body3 = wick_info(z[4]), wick_info(z[3])
+    disp_bear = z[4]["close"] < z[4]["open"] and body4["body_pct"] >= 0.55 and (z[4]["high"] - z[4]["low"]) >= a * 0.75
+    disp_bull = z[4]["close"] > z[4]["open"] and body4["body_pct"] >= 0.55 and (z[4]["high"] - z[4]["low"]) >= a * 0.75
+    last3, last2 = c[4] - c[2], c[4] - c[3]
+    accel_bear = last3 < -a * 0.45 and last2 < 0
+    accel_bull = last3 > a * 0.45 and last2 > 0
+    bear = break_bear or ((bear_seq or accel_bear) and z[4]["close"] < z[4]["open"])
+    bull = break_bull or ((bull_seq or accel_bull) and z[4]["close"] > z[4]["open"])
+    score = (
+        (2 if break_bear else 1) + (1 if disp_bear else 0) + (1 if accel_bear else 0) if bear
+        else (2 if break_bull else 1) + (1 if disp_bull else 0) + (1 if accel_bull else 0) if bull else 0
+    )
     return {
-        "poc": poc_price, "vah": vah_price, "val": val_price,
-        "range_low": lo, "range_high": hi,
+        "bull": bull and not bear, "bear": bear and not bull,
+        "level": prior_low if bear else prior_high if bull else None,
+        "score": score, "disp_bull": disp_bull, "disp_bear": disp_bear,
+        "reason": "LH/LL أو كسر Swing هابط" if bear else "HH/HL أو كسر Swing صاعد" if bull else "لا تحول لحظي مؤكد",
     }
 
 
-def calc_order_flow_pressure(candles, lookback=14):
-    """
-    تقريب لـ Order Flow بدون بيانات Tick: يحسب أين أغلق السعر داخل مدى كل شمعة
-    (قرب القمة = ضغط شراء، قرب القاع = ضغط بيع) مرجّح بالحجم — نفس مبدأ
-    Chaikin Money Flow. يرجع قيمة بين -1 (ضغط بيع قوي) و +1 (ضغط شراء قوي).
-    """
-    recent = candles[-lookback:] if len(candles) >= lookback else candles
-    total_vol = sum(c["volume"] for c in recent)
-    if total_vol == 0:
-        return 0.0
-    flow_sum = 0.0
-    for c in recent:
-        full_range = c["high"] - c["low"]
-        if full_range == 0:
-            continue
-        mfm = ((c["close"] - c["low"]) - (c["high"] - c["close"])) / full_range
-        flow_sum += mfm * c["volume"]
-    return flow_sum / total_vol
+def forecast(candles, h):
+    """تنبؤ الأفق h (1/2/3 شموع قدام) بنظام نقاط مركّب — نفس forecast() الأصلية."""
+    c = [x["close"] for x in candles]
+    last = c[-1]
+    a = atr(candles, 14) or 1
+    if len(c) < 20:
+        return {"dir": "NEUTRAL", "score": 0.0, "price": last, "move": 0.0, "confidence": 0.0, "regime": "INSUFFICIENT"}
 
+    e8, e20, e50 = ema(c, 8), ema(c, 20), ema(c, 50)
+    fl = qflow(candles) / 100
+    sl = slope(c, min(12, len(c))) / a
+    mom6 = (last - c[-7]) / a
+    mom3 = (last - c[-4]) / a
+    lc, prev = candles[-1], candles[-2]
+    w = wick_info(lc)
+    rng = max(lc["high"] - lc["low"], 1e-9)
+    body = (lc["close"] - lc["open"]) / rng
+    prev_range = max(prev["high"] - prev["low"], 1e-9)
+    range_exp = max(0.45, min(2.2, rng / max(prev_range, a * 0.55)))
+    trend20 = (e20 - e50) / a
+    short_trend = (e8 - e20) / a
+    vp = price_bins(candles)
+    vp_span = max(vp["vah"] - vp["val"], a)
+    vp_pos = max(-1.0, min(1.0, (last - vp["poc"]) / vp_span))
+    close_pos = ((last - lc["low"]) / rng) * 2 - 1
+    seq5 = sum((1 if c[-5 + i] > c[-5 + i - 1] else (-1 if c[-5 + i] < c[-5 + i - 1] else 0)) for i in range(1, 5)) / 4
 
-def evaluate_value_area_breakout(closes, candles, atr):
-    """
-    اختراق منطقة القيمة (Value Area Breakout) — منقول من فكرة
-    Break → Retest → Confirmation: ما يدخلش فور الاختراق (تجنب "مطاردة
-    السعر")، يستنى:
-    1) شمعة تخترق وتُغلق خارج VAH/VAL
-    2) شمعة ترتد وتختبر الحافة (Retest) بلا ما تدخل القيمة من جديد
-    3) شمعة تأكيد تكمل في نفس الاتجاه، مدعومة بـ RSI وضغط Order Flow وحجم
-    """
-    if not VAB_SIGNAL or len(candles) < VAB_LOOKBACK + 5:
-        return None, None
+    def tanh(x):
+        import math
+        return math.tanh(x)
 
-    vp = calc_volume_profile(candles[-VAB_LOOKBACK:], MPE_VP_BINS)
-    if vp is None:
-        return None, None
+    slope_n, mom_n, mom3_n = tanh(sl * 0.75), tanh(mom6 * 0.58), tanh(mom3 * 0.72)
+    trend_n, short_n = tanh(trend20 * 0.72), tanh(short_trend * 0.72)
+    flow_n = max(-1.0, min(1.0, fl))
+    body_n = max(-1.0, min(1.0, body))
+    seq_n = max(-1.0, min(1.0, seq5))
+    value_n = max(-1.0, min(1.0, -vp_pos * 0.34))
+    close_n = max(-1.0, min(1.0, close_pos * 0.22))
+    rejection = (0.24 if w["lower_pct"] > 0.45 else 0) + (-0.24 if w["upper_pct"] > 0.45 else 0)
 
-    vah, val = vp["vah"], vp["val"]
-    break_c, retest_c, confirm_c = candles[-3], candles[-2], candles[-1]
-    rsi_now = calc_rsi(closes, RSI_PERIOD)
-    flow = calc_order_flow_pressure(candles, 14)
-    band = max(0.3 * atr, 0.05)
+    import math
+    sign_src = body_n or mom3_n or short_n or trend_n or seq_n or 1
+    expansion_dir = math.copysign(1, sign_src) if sign_src else 1
+    expansion = (0.09 * expansion_dir if range_exp > 1.18 else -0.04 * expansion_dir if range_exp < 0.70 else 0)
 
-    # BUY: اختراق فوق VAH + Retest + تأكيد استمرار
-    if (break_c["close"] > vah
-            and retest_c["low"] <= vah + band and retest_c["close"] >= vah - band * 0.5
-            and confirm_c["close"] > vah and confirm_c["close"] > break_c["close"]
-            and rsi_now < 75 and flow > 0):
-        if not check_volume(candles):
-            return None, "Value Area Breakout شراء: حجم التداول ضعيف"
-        return "buy", f"اختراق مؤكد فوق VAH ({vah:,.2f}) بعد Retest وتأكيد استمرار"
+    raw_base = (slope_n * .13 + mom_n * .20 + mom3_n * .12 + trend_n * .15 + short_n * .11 +
+                flow_n * .12 + body_n * .08 + seq_n * .08 + value_n * .06 + close_n * .04 +
+                rejection + expansion)
 
-    # SELL: كسر تحت VAL + Retest + تأكيد استمرار
-    if (break_c["close"] < val
-            and retest_c["high"] >= val - band and retest_c["close"] <= val + band * 0.5
-            and confirm_c["close"] < val and confirm_c["close"] < break_c["close"]
-            and rsi_now > 25 and flow < 0):
-        if not check_volume(candles):
-            return None, "Value Area Breakdown بيع: حجم التداول ضعيف"
-        return "sell", f"كسر مؤكد تحت VAL ({val:,.2f}) بعد Retest وتأكيد استمرار"
-
-    return None, None
-
-
-def evaluate_market_prediction_signal(closes, candles, ema, atr):
-    """
-    Market Prediction Engine — مصدر إشارة مستقل يجمع عدة عناصر في نقاط (Score):
-    اتجاه EMA200، RSI، زخم MACD، موقع السعر من Volume Profile (POC)، وضغط
-    Order Flow (تقريبي). يبعث إشارة غير إذا النقاط الإجمالية وصلت حد معيّن.
-
-    ADX هنا بوابة (Gate) وليس نقطة إضافية — سوق بلا اتجاه واضح (ADX ضعيف)
-    يمنع الإشارة كاملة، بدل ما يزيد نقطة تكرر نفس اتجاه EMA200.
-
-    شرط إضافي إجباري: الزخم القريب (EMA20) لازم يتفق مع اتجاه الإشارة —
-    هذا يمنع الدخول لما يكون الاتجاه العام الطويل (EMA200) لسه قديم/متأخر
-    بينما السعر بدا فعلياً ينعكس في آخر الشموع.
-    """
-    if not MPE_SIGNAL or len(closes) < max(MPE_LOOKBACK, 40):
-        return None, None, 0
-
-    adx = calc_adx(candles, 14)
-    if adx < 18:
-        return None, None, 0  # سوق بلا اتجاه واضح — المحرك ما يحسبش أصلاً
-
-    rsi_now = calc_rsi(closes, RSI_PERIOD)
-    flow = calc_order_flow_pressure(candles, MPE_LOOKBACK)
-    vp = calc_volume_profile(candles[-MPE_LOOKBACK:], MPE_VP_BINS)
-    price = closes[-1]
-    ema20 = calc_ema(closes, 20)
-
-    macd_line, signal_line = calc_macd_series(closes)
-    macd_bullish = False
-    macd_bearish = False
-    if macd_line and signal_line and len(macd_line) >= len(signal_line):
-        hist = [m - sgn for m, sgn in zip(macd_line[-len(signal_line):], signal_line)]
-        if len(hist) >= 2:
-            macd_bullish = hist[-1] > hist[-2] and hist[-1] > 0
-            macd_bearish = hist[-1] < hist[-2] and hist[-1] < 0
-
-    bull_score = 0
-    bear_score = 0
-
-    # 1) اتجاه EMA200
-    if price > ema:
-        bull_score += 1
+    disagreement = abs(short_n - trend_n)
+    if abs(trend_n) > 0.28 and (1 if (short_n or trend_n) >= 0 else -1) == (1 if trend_n >= 0 else -1):
+        regime = "TRENDING"
+    elif disagreement > 0.75:
+        regime = "TRANSITION"
+    elif range_exp < 0.72 and abs(raw_base) < 0.45:
+        regime = "COMPRESSION"
+    elif range_exp > 1.25 and abs(raw_base) > 0.30:
+        regime = "EXPANSION"
     else:
-        bear_score += 1
+        regime = "BALANCED"
 
-    # 2) RSI (منطقة صحية، بعيدة عن التشبع)
-    if 50 <= rsi_now < 70:
-        bull_score += 1
-    elif 30 < rsi_now <= 50:
-        bear_score += 1
+    raw = raw_base
+    if regime == "TRANSITION":
+        raw *= 0.78
+    if regime == "COMPRESSION":
+        raw *= 0.72
+    if regime == "TRENDING" and (raw >= 0) == (trend_n >= 0):
+        raw *= 1.08
+    raw *= 1 if h == 1 else 0.88 if h == 2 else 0.76
 
-    # 3) زخم MACD
-    if macd_bullish:
-        bull_score += 1
-    if macd_bearish:
-        bear_score += 1
+    threshold = 0.14 if h == 1 else 0.18 if h == 2 else 0.22
+    direction = "BULLISH" if raw > threshold else "BEARISH" if raw < -threshold else "NEUTRAL"
 
-    # 4) ضغط Order Flow (تقريبي)
-    if flow > 0.15:
-        bull_score += 1
-    elif flow < -0.15:
-        bear_score += 1
+    features = [slope_n, mom_n, mom3_n, trend_n, short_n, flow_n, body_n, seq_n, value_n]
+    feat_mean = mean(features)
+    variance = mean([(v - feat_mean) ** 2 for v in features])
+    agreement = max(0.0, 1 - variance ** 0.5)
+    strength = min(1.0, abs(raw_base) * 1.65)
+    confidence = 47 + strength * 35 + agreement * 13 - (h - 1) * 6
+    if regime == "TRANSITION":
+        confidence -= 9
+    if regime == "COMPRESSION":
+        confidence -= 7
+    if direction == "NEUTRAL":
+        confidence -= 12
+    if abs(body_n) > 0.55 and (body_n >= 0) == (raw_base >= 0):
+        confidence += 3
+    confidence = max(18.0, min(90.0, confidence))
 
-    # 5) موقع السعر من Volume Profile POC
-    if vp is not None:
-        if price > vp["poc"]:
-            bull_score += 1
-        elif price < vp["poc"]:
-            bear_score += 1
+    directional = max(0.18, min(1.0, abs(raw) * 1.35))
+    mult = 0.44 if h == 1 else 0.58 if h == 2 else 0.70
+    move = a * (mult * (0.70 + directional * 0.58))
+    if direction == "NEUTRAL":
+        move = a * mult * 0.34
+    signed = 1 if direction == "BULLISH" else -1 if direction == "BEARISH" else 0
 
-    threshold = min(MPE_SCORE_THRESHOLD, 5)
-
-    if bull_score >= threshold and bull_score > bear_score:
-        if price < ema20:
-            return None, None, bull_score  # الزخم القريب عكس الإشارة — رفض
-        return "buy", f"Market Prediction: نقاط شراء {bull_score}/5 (ADX={adx:.0f}, Flow={flow:+.2f})", bull_score
-    if bear_score >= threshold and bear_score > bull_score:
-        if price > ema20:
-            return None, None, bear_score  # الزخم القريب عكس الإشارة — رفض
-        return "sell", f"Market Prediction: نقاط بيع {bear_score}/5 (ADX={adx:.0f}, Flow={flow:+.2f})", bear_score
-
-    return None, None, max(bull_score, bear_score)
-
-
-def check_macd_momentum(closes, direction):
-    """MACD لازم يبدا يرتد في نفس اتجاه الإشارة (الهيستوغرام يتحسن مقارنة بآخر 3 شموع)."""
-    macd_line, signal_line = calc_macd_series(closes)
-    if not macd_line or not signal_line or len(macd_line) < 4:
-        return True  # بيانات غير كافية، لا نمنع الإشارة بسبب هذا وحده
-    hist = [m - s for m, s in zip(macd_line[-len(signal_line):], signal_line)]
-    if len(hist) < 3:
-        return True
-    if direction == "buy":
-        return hist[-1] > hist[-2] or hist[-1] > hist[-3]
-    return hist[-1] < hist[-2] or hist[-1] < hist[-3]
-
-
-def find_pivots(candles, left=3, right=3):
-    """
-    يكتشف القمم والقيعان المحلية (Pivots) — كل قمة/قاع لازم يكون أعلى/أدنى
-    من "left" شمعة قبلو و"right" شمعة بعدو. أساس تحليل بنية السوق (ZigZag).
-    """
-    pivots = []
-    n = len(candles)
-    for i in range(left, n - right):
-        window = candles[i - left:i + right + 1]
-        high_i, low_i = candles[i]["high"], candles[i]["low"]
-        if high_i == max(c["high"] for c in window):
-            pivots.append((i, high_i, "high"))
-        if low_i == min(c["low"] for c in window):
-            pivots.append((i, low_i, "low"))
-    return pivots
-
-
-def classify_market_structure(candles, left=3, right=3):
-    """
-    يصنف آخر قمة وآخر قاع حسب بنية السوق:
-    HH (قمة أعلى) / LH (قمة أقل) — HL (قاع أعلى) / LL (قاع أقل).
-    يرجع dict: {"last_high": "HH"/"LH"/None, "last_low": "HL"/"LL"/None}
-    """
-    pivots = find_pivots(candles, left, right)
-    highs = [p for p in pivots if p[2] == "high"]
-    lows = [p for p in pivots if p[2] == "low"]
-
-    result = {"last_high": None, "last_low": None}
-    if len(highs) >= 2:
-        result["last_high"] = "HH" if highs[-1][1] > highs[-2][1] else "LH"
-    if len(lows) >= 2:
-        result["last_low"] = "HL" if lows[-1][1] > lows[-2][1] else "LL"
-    return result
-
-
-def evaluate_support_resistance_signal(candles, atr, ema):
-    """
-    مصدر إشارة مستقل — فلتر واحد بس (بلا أي فلتر تأكيد إضافي):
-    كي يوصل السعر لمستوى مقاومة (أعلى قمة في آخر N شمعة) → بيع.
-    كي يوصل السعر لمستوى دعم (أدنى قاع في آخر N شمعة) → شراء.
-    يعتمد على الشموع السابقة فقط (بلا انتظار شموع لاحقة للتأكيد)،
-    فالإشارة تنطلق فوراً من أول شمعة تلامس المستوى، بلا أي تأخير.
-    """
-    if not SR_SIGNAL or len(candles) < SR_PIVOT_LENGTH + 5:
-        return None, None
-
-    window = candles[-1 - SR_PIVOT_LENGTH:-1]  # آخر N شمعة، بلا الشمعة الحالية
-    resistance = max(c["high"] for c in window)
-    support = min(c["low"] for c in window)
-    price = candles[-1]["close"]
-    tol = SR_TOLERANCE_ATR * atr
-
-    closes_all = [c["close"] for c in candles]
-    rsi_now = calc_rsi(closes_all, RSI_PERIOD)
-    # EMA200 بطيء جداً (50+ ساعة) وممكن يبقى يقول "هابط" حتى بعد ما السعر
-    # يرتد فعلياً ويبدا صعود قوي قريب. EMA20 يمسك الزخم القريب فيمنع هذا الفخ.
-    ema20 = calc_ema(closes_all, 20)
-
-    trend_up_long = price > ema
-    trend_up_short = price > ema20
-
-    if abs(price - resistance) <= tol:
-        if rsi_now < 45:
-            return None, f"عند المقاومة لكن RSI منخفض ({rsi_now:.1f}) — احتمال ترند صاعد قوي، البيع خطر"
-        if trend_up_long or trend_up_short:
-            return None, "عند المقاومة لكن الاتجاه (طويل أو قريب) صاعد — البيع عكس الترند، مرفوض"
-        return "sell", f"السعر عند مستوى المقاومة ({resistance:,.2f}) — مع الترند الهابط (طويل وقريب)"
-    if abs(price - support) <= tol:
-        if rsi_now > 55:
-            return None, f"عند الدعم لكن RSI مرتفع ({rsi_now:.1f}) — احتمال ترند هابط قوي، الشراء خطر"
-        if not trend_up_long or not trend_up_short:
-            return None, "عند الدعم لكن الاتجاه (طويل أو قريب) هابط — الشراء عكس الترند، مرفوض"
-        return "buy", f"السعر عند مستوى الدعم ({support:,.2f}) — مع الترند الصاعد (طويل وقريب)"
-
-    return None, None
-
-
-def evaluate_reversal_signal(closes, candles, ema, atr, symbol=None):
-    """
-    إشارة عكس الترند (مخاطرة أعلى): كي يكون السعر تحت EMA200 ويطلع من منطقة
-    مباع بزيادة، تعطي شراء (والعكس). شروط صارمة: RSI كان متطرف ثم ارتد،
-    السعر تجاوز EMA20، وشمعة تأكيد قوية في اتجاه الصفقة.
-    """
-    if not ALLOW_COUNTER_TREND or len(closes) < 40:
-        return None, None
-
-    trend_direction = "buy" if closes[-1] > ema else "sell"
-    direction = "sell" if trend_direction == "buy" else "buy"
-
-    ema20 = calc_ema(closes, 20)
-    rsi_now = calc_rsi(closes, RSI_PERIOD)
-    rsi_prev = calc_rsi(closes[:-1], RSI_PERIOD)
-    rsis = [calc_rsi(closes[:len(closes) - k], RSI_PERIOD) for k in range(0, 12)]
-    last = candles[-1]
-
-    if direction == "buy":
-        if min(rsis) > 30:
-            return None, None
-        if not (35 <= rsi_now <= 65 and rsi_now > rsi_prev):
-            return None, "Reversal شراء: ننتظر RSI يرتد فوق 35"
-        if closes[-1] <= ema20:
-            return None, "Reversal شراء: ننتظر السعر يتجاوز EMA20"
-    else:
-        if max(rsis) < 70:
-            return None, None
-        if not (35 <= rsi_now <= 65 and rsi_now < rsi_prev):
-            return None, "Reversal بيع: ننتظر RSI ينزل تحت 65"
-        if closes[-1] >= ema20:
-            return None, "Reversal بيع: ننتظر السعر يكسر EMA20"
-
-    if not check_body_wick(last, direction):
-        return None, "Reversal: شمعة التأكيد ضعيفة"
-    if not check_macd_momentum(closes, direction):
-        return None, "Reversal: MACD ما يدعمش الارتداد بعد"
-    if not check_volume(candles, mult=1.0):
-        return None, "Reversal: حجم التداول ضعيف"
-    if symbol is not None and not check_higher_timeframe(symbol, direction):
-        return None, "Reversal: الفريم الأعلى (1h) ما يدعمش الاتجاه"
-
-    structure = classify_market_structure(candles)
-    if direction == "buy" and structure["last_low"] == "LL":
-        return None, "Reversal: بنية السوق ما زالت LL (قاع أقل) — الهبوط لسه قوي"
-    if direction == "sell" and structure["last_high"] == "HH":
-        return None, "Reversal: بنية السوق ما زالت HH (قمة أعلى) — الصعود لسه قوي"
-
-    return direction, "ارتداد عكس الترند بعد تطرف RSI (مؤكد بـ RSI+MACD+حجم+فريم أعلى+بنية السوق)"
-
+    return {"dir": direction, "score": raw, "price": last + signed * move, "move": move,
+            "confidence": confidence, "regime": regime}
 
 
 # ------------------------------------------------------------------
-# قاطع الدائرة (Circuit Breaker) — يتحقق من نتائج آخر إشارة قبل يرسل جديدة
+# مناطق السيولة المؤسساتية + خطة الصفقة (منقولة من institutionalLiquidity/marketPlan)
 # ------------------------------------------------------------------
-def check_open_signal_outcome(symbol_state, current_price):
-    """يتحقق هل آخر إشارة مفتوحة لمست TP أو SL، ويحدّث عدّاد الخسائر."""
+def institutional_liquidity(candles, vp, a, px):
+    if len(candles) < 10:
+        return {"zones": [], "summary": "بيانات غير كافية."}
+    n = min(100, len(candles))
+    w = candles[-n:]
+    tol = max(0.18, a * 0.22)
+    raw = []
+
+    def add(price, type_, weight, why):
+        if price is not None:
+            raw.append({"price": price, "type": type_, "weight": weight, "why": why})
+
+    add(vp["poc"], "HVN / POC", 7, "أعلى عقدة حجم تقريبية")
+    add(vp["vah"], "VAH", 5, "حافة قيمة علوية")
+    add(vp["val"], "VAL", 5, "حافة قيمة سفلية")
+
+    swing_highs, swing_lows = [], []
+    for i in range(2, len(w) - 2):
+        z = w[i]
+        if z["high"] >= w[i - 1]["high"] and z["high"] >= w[i - 2]["high"] and z["high"] >= w[i + 1]["high"] and z["high"] >= w[i + 2]["high"]:
+            swing_highs.append(z["high"])
+            add(z["high"], "Swing High", 3, "قمة محلية قد تتجمع فوقها السيولة")
+        if z["low"] <= w[i - 1]["low"] and z["low"] <= w[i - 2]["low"] and z["low"] <= w[i + 1]["low"] and z["low"] <= w[i + 2]["low"]:
+            swing_lows.append(z["low"])
+            add(z["low"], "Swing Low", 3, "قاع محلي قد تتجمع تحته السيولة")
+
+    def cluster_levels(items, type_, why):
+        items_sorted = sorted(items)
+        clusters = []
+        for price in items_sorted:
+            match = next((cl for cl in clusters if abs(cl["center"] - price) <= tol), None)
+            if match is None:
+                clusters.append({"prices": [price], "center": price})
+            else:
+                match["prices"].append(price)
+                match["center"] = mean(match["prices"])
+        for cl in clusters:
+            if len(cl["prices"]) >= 2:
+                strength = min(7.0, 4 + (len(cl["prices"]) - 2) * 0.75)
+                add(cl["center"], type_, strength, f"{why} ({len(cl['prices'])} نقاط متقاربة)")
+
+    cluster_levels(swing_highs, "Equal Highs", "قمم متقاربة — سيولة محتملة فوقها")
+    cluster_levels(swing_lows, "Equal Lows", "قيعان متقاربة — سيولة محتملة تحتها")
+
+    zones = []
+    for r in raw:
+        match = next((z for z in zones if abs(z["price"] - r["price"]) <= tol), None)
+        if match is None:
+            zones.append({"price": r["price"], "score": r["weight"], "types": [r["type"]], "why": [r["why"]]})
+        else:
+            match["price"] = (match["price"] + r["price"]) / 2
+            match["score"] += r["weight"]
+            if r["type"] not in match["types"]:
+                match["types"].append(r["type"])
+            if r["why"] not in match["why"]:
+                match["why"].append(r["why"])
+
+    for z in zones:
+        z["distance"] = abs(z["price"] - px)
+        z["score"] = min(20.0, z["score"] + max(0.0, 3 - z["distance"] / max(a, 0.01)))
+        z["types"] = z["types"][:4]
+        z["why"] = " • ".join(z["why"][:2])
+
+    zones.sort(key=lambda z: -z["score"])
+    top = zones[:6]
+    summary = (
+        "أقوى مناطق السيولة: " + " • ".join(f"{z['price']:,.2f}" for z in top[:3]) +
+        f" • السعر الحالي {px:,.2f} • ATR {a:.2f}"
+    ) if top else "لا توجد مناطق سيولة كافية."
+    return {"zones": top, "summary": summary}
+
+
+def market_plan(a, px, decision, liquidity):
+    if decision not in ("BUY", "SELL"):
+        return None
+    zones = liquidity.get("zones", [])
+    min_gap = max(a * 0.32, 0.35)
+    side = 1 if decision == "BUY" else -1
+    directional = [z for z in zones if (z["price"] > px + min_gap if side > 0 else z["price"] < px - min_gap)]
+    directional.sort(key=lambda z: z["price"] if side > 0 else -z["price"])
+    chosen = []
+    for z in directional:
+        if not any(abs(c["price"] - z["price"]) < max(a * 0.28, 0.30) for c in chosen):
+            chosen.append(z)
+        if len(chosen) >= 3:
+            break
+    fallback = [a * 0.75, a * 1.35, a * 2.05]
+    for i in range(3):
+        if i >= len(chosen):
+            price = px + side * fallback[i]
+            if i > 0:
+                prev_dist = abs(chosen[i - 1]["price"] - px) if i - 1 < len(chosen) else 0
+                price = (max(abs(price - px), prev_dist + a * 0.30)) * side + px
+            chosen.append({"price": price, "types": ["ATR extension"], "why": "امتداد مبني على التذبذب الحالي (ATR)"})
+
+    sl_candidates = [z for z in zones if (z["price"] < px - min_gap if side > 0 else z["price"] > px + min_gap)]
+    sl_candidates.sort(key=lambda z: -z["price"] if side > 0 else z["price"])
+    sl_base = sl_candidates[0] if sl_candidates else None
+    sl = (sl_base["price"] - side * a * 0.18) if sl_base else (px - side * a * 0.90)
+    sl = min(sl, px - a * 0.45) if side > 0 else max(sl, px + a * 0.45)
+
+    tps = [z["price"] for z in chosen[:3]]
+    risk = abs(px - sl) or 1e-9
+    return {
+        "entry": px, "sl": sl,
+        "tp1": tps[0] if len(tps) > 0 else None,
+        "tp2": tps[1] if len(tps) > 1 else None,
+        "tp3": tps[2] if len(tps) > 2 else None,
+        "risk": risk,
+        "tp_reasons": [c.get("why") or "/".join(c.get("types", [])) or "منطقة سوقية" for c in chosen[:3]],
+    }
+
+
+# ------------------------------------------------------------------
+# آلة حالة التوقيت Break → Retest → Confirm (محفوظة في state.json)
+# ------------------------------------------------------------------
+def interval_seconds():
+    return KRAKEN_INTERVAL_MINUTES.get(INTERVAL, 1) * 60
+
+
+def break_retest_evidence(candles, lc, px, a, side, trigger, flow, forecast_score):
+    band = max(0.30, a * 0.20)
+    confirm = max(0.35, a * 0.12)
+    recent = candles[-5:]
+
+    def body_pct(z):
+        rng = max(z["high"] - z["low"], 1e-9)
+        return abs(z["close"] - z["open"]) / rng
+
+    bull_break = any(z["close"] > trigger + a * 0.08 and body_pct(z) >= 0.35 and z["close"] > z["open"] for z in recent)
+    bear_break = any(z["close"] < trigger - a * 0.08 and body_pct(z) >= 0.35 and z["close"] < z["open"] for z in recent)
+    bull_retest = side == "BUY" and trigger - band <= px <= trigger + band and lc["low"] <= trigger + band and lc["close"] >= lc["open"] and flow > 4 and forecast_score > 0.08
+    bear_retest = side == "SELL" and trigger - band <= px <= trigger + band and lc["high"] >= trigger - band and lc["close"] <= lc["open"] and flow < -4 and forecast_score < -0.08
+    bull_confirm = side == "BUY" and px > trigger + confirm and flow > 6 and forecast_score > 0.12
+    bear_confirm = side == "SELL" and px < trigger - confirm and flow < -6 and forecast_score < -0.12
+    return {
+        "bull_break_closed": bull_break, "bear_break_closed": bear_break,
+        "bull_retest": bull_retest, "bear_retest": bear_retest,
+        "bull_confirm": bull_confirm, "bear_confirm": bear_confirm,
+        "band": band, "confirm": confirm,
+    }
+
+
+def update_timing(timing, px, a, side, trigger, closed_break, retest_evidence, confirm_evidence):
+    import time
+    if not side or trigger is None or a <= 0:
+        return {"side": side, "stage": "IDLE", "trigger": trigger, "band": 0, "reason": "لا يوجد Trigger صالح."}
+
+    band = max(0.35, a * 0.18)
+    now = time.time()
+    max_retest_age = max(90, interval_seconds() * 4)
+
+    if timing.get("side") != side or timing.get("trigger") is None or abs(timing["trigger"] - trigger) > a * 0.65:
+        timing = {"side": side, "stage": "PRE-TRIGGER", "trigger": trigger, "band": band,
+                  "broken_at": 0, "retest_seen": False, "confirmed_at": 0}
+    else:
+        timing["band"] = band
+
+    t = timing["trigger"]
+    if timing["stage"] == "BREAK" and timing.get("broken_at", 0) > 0 and now - timing["broken_at"] > max_retest_age and not timing.get("retest_seen"):
+        timing["stage"] = "MISSED"
+
+    if side == "SELL":
+        if timing["stage"] == "BREAK" and px < t - max(a * 0.65, 1.2) and not timing.get("retest_seen"):
+            timing["stage"] = "MISSED"
+        elif timing["stage"] == "PRE-TRIGGER" and closed_break:
+            timing["stage"] = "BREAK"
+            timing["broken_at"] = now
+        elif timing["stage"] == "BREAK" and retest_evidence:
+            timing["stage"] = "RETEST"
+            timing["retest_seen"] = True
+        elif timing["stage"] == "RETEST" and confirm_evidence:
+            timing["stage"] = "CONFIRMED ENTRY"
+            timing["confirmed_at"] = now
+    else:  # BUY
+        if timing["stage"] == "BREAK" and px > t + max(a * 0.65, 1.2) and not timing.get("retest_seen"):
+            timing["stage"] = "MISSED"
+        elif timing["stage"] == "PRE-TRIGGER" and closed_break:
+            timing["stage"] = "BREAK"
+            timing["broken_at"] = now
+        elif timing["stage"] == "BREAK" and retest_evidence:
+            timing["stage"] = "RETEST"
+            timing["retest_seen"] = True
+        elif timing["stage"] == "RETEST" and confirm_evidence:
+            timing["stage"] = "CONFIRMED ENTRY"
+            timing["confirmed_at"] = now
+
+    reasons = {
+        "PRE-TRIGGER": f"ننتظر إغلاق شمعة خارج {t:,.2f}.",
+        "BREAK": f"تم تجاوز {t:,.2f}؛ ننتظر Retest ولا نطارد السعر.",
+        "RETEST": "السعر داخل منطقة التأكيد؛ ننتظر استمراراً واضحاً.",
+        "CONFIRMED ENTRY": f"تأكيد Break + Retest + استمرار. Trigger {t:,.2f}.",
+        "MISSED": "فات وقت الدخول — لا مطاردة.",
+    }
+    timing["reason"] = reasons.get(timing["stage"], "—")
+    timing["closed_break"] = bool(closed_break)
+    return timing
+
+
+# ------------------------------------------------------------------
+# محرك القرار الرئيسي (منقول من دالة calc() الأصلية)
+# ------------------------------------------------------------------
+def compute_engine(candles, px, symbol_state):
+    work = candles
+    c = [x["close"] for x in work]
+    last = c[-1]
+    e20, e50 = ema(c, 20), ema(c, min(50, len(c)))
+    a = atr(work, 14) or 1.0
+    flow = qflow(work)
+    vp = price_bins(work)
+    lc = work[-1]
+
+    macro_structure = "BULLISH" if e20 > e50 else "BEARISH" if e20 < e50 else "NEUTRAL"
+    imm = immediate_structure(work, a)
+    structure = "BEARISH SHIFT" if imm["bear"] else "BULLISH SHIFT" if imm["bull"] else macro_structure
+
+    raw_f = [forecast(work, h) for h in (1, 2, 3)]
+    if imm["bear"]:
+        for i, f in enumerate(raw_f):
+            adj = 0.34 if i == 0 else 0.22 if i == 1 else 0.12
+            f["score"] -= adj
+            if f["score"] < -0.20:
+                f["dir"] = "BEARISH"
+    if imm["bull"]:
+        for i, f in enumerate(raw_f):
+            adj = 0.34 if i == 0 else 0.22 if i == 1 else 0.12
+            f["score"] += adj
+            if f["score"] > 0.20:
+                f["dir"] = "BULLISH"
+
+    px = px if px is not None else last
+    live_move = px - last
+    live_shock_bear = live_move <= -max(a * 0.55, 0.80) and px < last - a * 0.30
+    live_shock_bull = live_move >= max(a * 0.55, 0.80) and px > last + a * 0.30
+    live_poc_loss = px < vp["poc"] - a * 0.10 <= last
+    live_poc_reclaim = px > vp["poc"] + a * 0.10 and last <= vp["poc"] + a * 0.10
+    live_break_low = px < lc["low"] - a * 0.08
+    live_break_high = px > lc["high"] + a * 0.08
+    live_bear_shift = live_shock_bear and (live_poc_loss or live_break_low or px < vp["poc"])
+    live_bull_shift = live_shock_bull and (live_poc_reclaim or live_break_high or px > vp["poc"])
+
+    inside = vp["val"] <= px <= vp["vah"]
+    near_vah = abs(px - vp["vah"]) <= max(a * 0.50, 0.25)
+    near_val = abs(px - vp["val"]) <= max(a * 0.50, 0.25)
+    close_above = lc["close"] > vp["vah"]
+    close_below = lc["close"] < vp["val"]
+    recent_above = any(z["close"] > vp["vah"] for z in work[-3:])
+    recent_below = any(z["close"] < vp["val"] for z in work[-3:])
+
+    rs = range_state(work, vp, a)
+    fd = flow_divergence(work)
+    ms = momentum_state(work)
+    upper_reject = rejection_at(work, vp["vah"], "upper") or rejection_at(work, vp["poc"], "upper")
+    lower_reject = rejection_at(work, vp["val"], "lower") or rejection_at(work, vp["poc"], "lower")
+
+    bull_exhaust = (near_vah or px > vp["vah"]) and (ms["slow"] or fd["bull"] or upper_reject or flow < 6)
+    strong_bear_cont = (
+        (macro_structure == "BEARISH" or imm["bear"] or live_bear_shift)
+        and (flow < -8 or raw_f[0]["score"] < -0.18)
+        and (raw_f[0]["dir"] == "BEARISH" or imm["bear"] or live_bear_shift)
+        and (close_below or recent_below or live_move < -max(a * 0.45, 0.60))
+        and not fd["bull"]
+    )
+    strong_bull_cont = (
+        (macro_structure == "BULLISH" or imm["bull"] or live_bull_shift)
+        and (flow > 8 or raw_f[0]["score"] > 0.18)
+        and (raw_f[0]["dir"] == "BULLISH" or imm["bull"] or live_bull_shift)
+        and (close_above or recent_above or live_move > max(a * 0.45, 0.60))
+        and not fd["bear"]
+    )
+    bear_exhaust = (near_val or px < vp["val"]) and not strong_bear_cont and ((ms["slow"] and flow > -6) or fd["bear"] or lower_reject)
+    wi = wick_info(lc)
+    failed_bull = close_above and ((px < vp["vah"] + a * 0.10 and wi["upper_pct"] > 0.42) or flow < 0 or fd["bull"])
+    failed_bear = close_below and ((px > vp["val"] - a * 0.10 and wi["lower_pct"] > 0.42) or flow > 0 or fd["bear"])
+
+    strong_bear_mom = not failed_bear and not bear_exhaust and (
+        strong_bear_cont or (macro_structure == "BEARISH" and flow < -10 and raw_f[0]["score"] < -0.15 and close_below)
+    )
+    strong_bull_mom = not failed_bull and not bull_exhaust and (
+        strong_bull_cont or (macro_structure == "BULLISH" and flow > 10 and raw_f[0]["score"] > 0.15 and close_above)
+    )
+
+    micro_bear = (imm["bear"] or live_bear_shift) and not bear_exhaust and not bull_exhaust
+    micro_bull = (imm["bull"] or live_bull_shift) and not bull_exhaust and not bear_exhaust
+    micro_bear_level = imm["level"] if imm["bear"] else (vp["poc"] if live_poc_loss else lc["low"])
+    micro_bull_level = imm["level"] if imm["bull"] else (vp["poc"] if live_poc_reclaim else lc["high"])
+
+    legacy_bull_break = recent_above and close_above and flow > 10 and raw_f[0]["dir"] == "BULLISH" and (macro_structure == "BULLISH" or micro_bull) and not bull_exhaust and not failed_bull
+    legacy_bear_break = recent_below and close_below and flow < -10 and raw_f[0]["dir"] == "BEARISH" and (macro_structure == "BEARISH" or micro_bear) and not bear_exhaust and not failed_bear
+
+    timing_side = "SELL" if (micro_bear or legacy_bear_break) else "BUY" if (micro_bull or legacy_bull_break) else None
+    timing_trigger = (micro_bear_level if timing_side == "SELL" else micro_bull_level if timing_side == "BUY" else None)
+    if timing_side == "SELL" and (timing_trigger is None or abs(timing_trigger - vp["val"]) > a * 1.5):
+        timing_trigger = vp["val"]
+    if timing_side == "BUY" and (timing_trigger is None or abs(timing_trigger - vp["vah"]) > a * 1.5):
+        timing_trigger = vp["vah"]
+
+    ev = break_retest_evidence(work, lc, px, a, timing_side, timing_trigger, flow, raw_f[0]["score"]) if timing_side else None
+    bull_break = ((ev["bull_break_closed"] if ev else False) or legacy_bull_break) and flow > 5 and raw_f[0]["score"] > 0.08 and not bull_exhaust and not failed_bull
+    bear_break = ((ev["bear_break_closed"] if ev else False) or legacy_bear_break) and flow < -5 and raw_f[0]["score"] < -0.08 and not bear_exhaust and not failed_bear
+
+    closed_break_for_side = (ev["bull_break_closed"] if timing_side == "BUY" else ev["bear_break_closed"] if timing_side == "SELL" else False) if ev else False
+    retest_for_side = (ev["bull_retest"] if timing_side == "BUY" else ev["bear_retest"] if timing_side == "SELL" else False) if ev else False
+    confirm_for_side = (ev["bull_confirm"] if timing_side == "BUY" else ev["bear_confirm"] if timing_side == "SELL" else False) if ev else False
+
+    timing = symbol_state.get("timing") or {}
+    if timing_side:
+        timing = update_timing(timing, px, a, timing_side, timing_trigger, closed_break_for_side, retest_for_side, confirm_for_side)
+    else:
+        timing = {"side": None, "stage": "IDLE", "trigger": None, "band": 0, "reason": "لا يوجد Trigger صالح."}
+    symbol_state["timing"] = timing
+
+    decision, reason = "WAIT", "لا توجد مطابقة كافية بين البنية والتدفق والتوقيت."
+    if bull_exhaust:
+        reason = "إجهاد شرائي قرب المقاومة/القيمة العليا؛ ننتظر إعادة بناء."
+    elif bear_exhaust:
+        reason = "إجهاد بيعي قرب الدعم/القيمة السفلى؛ ننتظر إعادة بناء."
+    elif failed_bull:
+        reason = "اختراق صاعد فقد القبول؛ لا مطاردة."
+    elif failed_bear:
+        reason = "كسر هابط فقد القبول؛ لا مطاردة."
+    elif timing["stage"] == "CONFIRMED ENTRY" and timing["side"] == "BUY":
+        decision, reason = "BUY", f"تأكيد BUY: Break + Retest + استمرار. Trigger {timing['trigger']:,.2f}."
+    elif timing["stage"] == "CONFIRMED ENTRY" and timing["side"] == "SELL":
+        decision, reason = "SELL", f"تأكيد SELL: Break + Retest + استمرار. Trigger {timing['trigger']:,.2f}."
+    elif strong_bull_mom:
+        decision, reason = "BUY", "BUY زخم صاعد: الاتجاه والبنية والتدفق والتنبؤ متوافقون — زخم وليس مطاردة."
+    elif strong_bear_mom:
+        decision, reason = "SELL", "SELL زخم هابط: الاتجاه والبنية والتدفق والتنبؤ متوافقون — زخم وليس مطاردة."
+    elif timing["stage"] == "MISSED":
+        reason = timing["reason"]
+    elif timing["stage"] == "RETEST":
+        reason = f"RETEST {timing_side}: السعر داخل منطقة التأكيد؛ ننتظر استمراراً."
+    elif timing["stage"] == "BREAK":
+        reason = f"BREAK {timing_side}: تجاوز Trigger {timing['trigger']:,.2f}؛ ننتظر Retest."
+    elif live_bull_shift or micro_bull:
+        decision, reason = "BUY WATCH", f"تحول صاعد؛ ننتظر Break ثم Retest قرب {timing_trigger:,.2f}." if timing_trigger else "تحول صاعد مبكر."
+    elif live_bear_shift or micro_bear:
+        decision, reason = "SELL WATCH", f"تحول هابط؛ ننتظر Break ثم Retest قرب {timing_trigger:,.2f}." if timing_trigger else "تحول هابط مبكر."
+    elif bull_break:
+        decision, reason = "BUY WATCH", "اختراق صاعد؛ ننتظر Break/Retest صالح."
+    elif bear_break:
+        decision, reason = "SELL WATCH", "كسر هابط؛ ننتظر Break/Retest صالح."
+    elif inside:
+        reason = "السعر داخل منطقة القيمة؛ لا دخول من المنتصف."
+
+    liquidity = institutional_liquidity(work, vp, a, px)
+    plan = market_plan(a, px, decision, liquidity)
+
+    return {
+        "price": px, "last_close": last, "atr": a, "flow": flow, "vp": vp,
+        "structure": structure, "macro_structure": macro_structure,
+        "decision": decision, "reason": reason, "timing": timing,
+        "forecast": raw_f, "liquidity": liquidity, "plan": plan,
+        "bull_exhaust": bull_exhaust, "bear_exhaust": bear_exhaust,
+        "failed_bull": failed_bull, "failed_bear": failed_bear,
+    }
+
+
+# ------------------------------------------------------------------
+# قاطع الدائرة (نفس فكرة البوت القديم — أمان إضافي)
+# ------------------------------------------------------------------
+def check_open_signal_outcome(symbol_state, price):
     open_signal = symbol_state.get("open_signal")
     if not open_signal:
         return
-    direction = open_signal["direction"]
-    tp1 = open_signal["tp1"]
-    sl = open_signal["sl"]
-
-    hit_tp = (direction == "buy" and current_price >= tp1) or \
-             (direction == "sell" and current_price <= tp1)
-    hit_sl = (direction == "buy" and current_price <= sl) or \
-             (direction == "sell" and current_price >= sl)
-
-    src = open_signal.get("source", "breakout")
-    stats = symbol_state.setdefault("source_stats", {}).setdefault(src, {"wins": 0, "losses": 0})
-
+    direction, tp1, sl = open_signal["direction"], open_signal.get("tp1"), open_signal["sl"]
+    if tp1 is None:
+        return
+    hit_tp = (direction == "BUY" and price >= tp1) or (direction == "SELL" and price <= tp1)
+    hit_sl = (direction == "BUY" and price <= sl) or (direction == "SELL" and price >= sl)
     if hit_tp:
         symbol_state["consecutive_losses"] = 0
         symbol_state["open_signal"] = None
-        stats["wins"] += 1
-        log(f"✅ آخر إشارة {symbol_state.get('label','')} لامست TP1 — تصفير عداد الخسائر")
+        log(f"✅ آخر إشارة {symbol_state.get('label','')} لامست TP1")
     elif hit_sl:
         symbol_state["consecutive_losses"] = symbol_state.get("consecutive_losses", 0) + 1
         symbol_state["open_signal"] = None
-        stats["losses"] += 1
-        log(f"❌ آخر إشارة {symbol_state.get('label','')} لامست SL — عداد الخسائر = {symbol_state['consecutive_losses']}")
+        log(f"❌ آخر إشارة {symbol_state.get('label','')} لامست SL — خسائر متتالية: {symbol_state['consecutive_losses']}")
 
 
 def is_circuit_broken(symbol_state):
@@ -879,117 +830,49 @@ def is_circuit_broken(symbol_state):
 def maybe_trigger_circuit_breaker(symbol_state, label):
     if symbol_state.get("consecutive_losses", 0) >= MAX_CONSECUTIVE_LOSSES:
         now = datetime.now(timezone.utc)
-        pause_until = now.timestamp() + CIRCUIT_BREAKER_PAUSE_HOURS * 3600
-        pause_until_iso = datetime.fromtimestamp(pause_until, tz=timezone.utc).isoformat()
-        symbol_state["pause_until"] = pause_until_iso
+        until = datetime.fromtimestamp(now.timestamp() + CIRCUIT_BREAKER_PAUSE_HOURS * 3600, tz=timezone.utc)
+        symbol_state["pause_until"] = until.isoformat()
         symbol_state["consecutive_losses"] = 0
-        notify(
-            f"⛔ <b>قاطع الدائرة (Circuit Breaker) — {label}</b>\n"
-            f"تم إيقاف الإشارات مؤقتاً بعد {MAX_CONSECUTIVE_LOSSES} خسائر متتالية.\n"
-            f"سيُستأنف الفحص تلقائياً بعد {CIRCUIT_BREAKER_PAUSE_HOURS} ساعة."
-        )
+        notify(f"⛔ <b>قاطع الدائرة — {label}</b>\nتوقف مؤقت بعد {MAX_CONSECUTIVE_LOSSES} خسائر متتالية، لمدة {CIRCUIT_BREAKER_PAUSE_HOURS} ساعة.")
 
 
 # ------------------------------------------------------------------
-# تنسيق الرسائل
+# تنسيق رسائل تيليجرام
 # ------------------------------------------------------------------
-def format_strong_signal(label, direction, entry, sl, tp1, tp2, atr, rsi, corr,
-                          source="breakout", reason=""):
-    icon = "🟢⬆️" if direction == "buy" else "🔴⬇️"
-    word = "شراء" if direction == "buy" else "بيع"
+def format_entry_signal(label, x):
+    plan = x["plan"]
+    icon = "🟢⬆️" if x["decision"] == "BUY" else "🔴⬇️"
     ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
-
-    if source == "zlr":
-        title = "استمرار اتجاه — MACD Zero Line Reversal"
-        filters_line = "الفلاتر المجتازة: اتجاه EMA200 ✅ | RSI ✅ | حجم تداول ✅ | جسم شمعة قوي ✅"
-    elif source == "vab":
-        title = "اختراق منطقة القيمة 📊 (Value Area Breakout)"
-        filters_line = "الشروط: اختراق مغلق خارج VAH/VAL ✅ | Retest موثق ✅ | تأكيد استمرار ✅ | RSI ✅ | Order Flow ✅ | حجم ✅"
-    elif source == "mpe":
-        title = f"Market Prediction Engine 🔮 ({reason})" if reason else "Market Prediction Engine 🔮"
-        filters_line = (
-            "المحرك يجمع: اتجاه EMA200 + RSI + زخم MACD + Volume Profile (POC) + "
-            "Order Flow تقريبي في نظام نقاط ✅ | بوابة ADX (قوة اتجاه كافية) ✅ | "
-            "الزخم القريب (EMA20) متفق مع الإشارة ✅"
-        )
-    elif source == "sr":
-        if direction == "sell":
-            icon = "🔻"
-            title = "Resistance بيع 🔻"
-        else:
-            icon = "⬆️"
-            title = "Support شراء ⬆️"
-        filters_line = "الفلتر: السعر عند مستوى دعم/مقاومة محلي (فريم 15 دقيقة) + RSI + اتجاه EMA200 (طويل) + EMA20 (قريب) — الاثنين لازم يتفقو ⚠️"
-    elif source == "reversal":
-        title = "ارتداد عكس الترند ⚠️ (مخاطرة أعلى)"
-        filters_line = "الشروط: RSI ارتد ✅ | MACD ✅ | حجم ✅ | فريم أعلى ✅ | بنية السوق (HH/HL/LH/LL) ✅ | تجاوز EMA20 ✅ | شمعة تأكيد ✅ | ⚠️ عكس اتجاه EMA200"
-    elif source == "pullback":
-        title = "ارتداد مع الترند (Pullback)"
-        filters_line = "الفلاتر المجتازة: اتجاه EMA200 ✅ | RSI متطرف ثم ارتد ✅ | قرب EMA20 ✅ | شمعة تأكيد ✅"
-    else:
-        title = "اختراق مؤكّد بعدة فلاتر"
-        filters_line = (
-            "الفلاتر المجتازة: EMA200 ✅ | فريم أعلى ✅ | حجم تداول ✅ | "
-            "جسم شمعة قوي ✅ | تأكيد استمرار ✅"
-        )
-
-    corr_line = ""
-    if corr is not None:
-        align_icon = "✅" if corr["aligned"] else "⚠️"
-        corr_line = (
-            f"{align_icon} ترابط الذهب: BTC {corr['btc_change_pct']:+.2f}% / "
-            f"GOLD {corr['gold_change_pct']:+.2f}%\n"
-        )
-
+    tp_lines = ""
+    for i, key in enumerate(("tp1", "tp2", "tp3"), start=1):
+        if plan.get(key) is not None:
+            tp_lines += f"TP{i}: {plan[key]:,.2f}\n"
     return (
-        f"{icon} <b>إشارة {word} — {title}</b>\n"
+        f"{icon} <b>XAU Engine V21 — {x['decision']}</b>\n"
         f"الرمز: {label}\n"
         f"التاريخ: {ts}\n\n"
-        f"نقطة الدخول: {entry:,.2f}\n"
-        f"SL: {sl:,.2f} (ديناميكي عبر ATR)\n"
-        f"TP1: {tp1:,.2f}\n"
-        f"TP2: {tp2:,.2f}\n\n"
-        f"ATR: {atr:,.2f} | RSI: {rsi:.1f}\n"
-        f"{corr_line}"
-        f"{filters_line}\n\n"
-        f"⚠️ إشارة مبنية على تحليل متعدد الفلاتر، لكنها ليست ضمان نجاح "
-        f"ولا نصيحة مالية. أي صفقة تحمل مخاطرة، والتنفيذ يدوي بقرارك."
+        f"نقطة الدخول: {plan['entry']:,.2f}\n"
+        f"SL: {plan['sl']:,.2f}\n"
+        f"{tp_lines}\n"
+        f"ATR: {x['atr']:.2f} | Order Flow: {x['flow']:+.1f} | البنية: {x['structure']}\n"
+        f"السبب: {x['reason']}\n\n"
+        f"⚠️ إشارة تحليلية (Volume Profile + Order Flow + Break/Retest/Confirm)، "
+        f"ليست ضمان نجاح ولا نصيحة مالية. التنفيذ يدوي بقرارك."
     )
 
 
-SOURCE_LABELS_AR = {
-    "breakout": "اختراق", "zlr": "ZLR", "sr": "دعم/مقاومة", "mpe": "Market Prediction",
-    "vab": "اختراق منطقة القيمة", "pullback": "Pullback", "reversal": "Reversal",
-}
-
-
-def format_accuracy_summary(source_stats):
-    lines = []
-    for src, st in source_stats.items():
-        total = st.get("wins", 0) + st.get("losses", 0)
-        if total < 3:
-            continue
-        pct = round(st["wins"] / total * 100)
-        name = SOURCE_LABELS_AR.get(src, src)
-        lines.append(f"{name}: {pct}% ({st['wins']}/{total})")
-    if not lines:
-        return ""
-    return "📊 دقة المصادر حتى الآن: " + " | ".join(lines) + "\n\n"
-
-
-def format_hourly_update(label, price, ema, rsi, trend_word, source_stats=None):
+def format_status_update(label, x):
     ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
-    accuracy_line = format_accuracy_summary(source_stats) if source_stats else ""
     return (
         f"🕐 <b>تحديث دوري (بدون توصية دخول)</b>\n"
         f"الرمز: {label}\n"
         f"التاريخ: {ts}\n\n"
-        f"السعر الحالي: {price:,.2f}\n"
-        f"الاتجاه العام (EMA{EMA_PERIOD}): {trend_word}\n"
-        f"RSI: {rsi:.1f}\n\n"
-        f"{accuracy_line}"
-        f"لا يوجد اختراق مؤكد حالياً يجتاز كل الفلاتر — هذا تحديث حالة "
-        f"سوق فقط، وليس إشارة دخول."
+        f"السعر: {x['price']:,.2f}\n"
+        f"البنية: {x['structure']} (EMA: {x['macro_structure']})\n"
+        f"القرار الحالي: {x['decision']}\n"
+        f"المرحلة: {x['timing'].get('stage', '—')}\n"
+        f"Order Flow: {x['flow']:+.1f} | ATR: {x['atr']:.2f}\n\n"
+        f"{x['reason']}"
     )
 
 
@@ -999,160 +882,60 @@ def format_hourly_update(label, price, ema, rsi, trend_word, source_stats=None):
 def minutes_since(iso_str):
     if not iso_str:
         return None
-    last = datetime.fromisoformat(iso_str)
-    now = datetime.now(timezone.utc)
-    return (now - last).total_seconds() / 60
+    return (datetime.now(timezone.utc) - datetime.fromisoformat(iso_str)).total_seconds() / 60
 
 
-def process_symbol(symbol, label, state, other_closes=None):
+def process_symbol(symbol, label, state):
     symbol_state = state.setdefault(symbol, {"label": label})
     symbol_state["label"] = label
 
+    if WEEKEND_FILTER and is_forex_market_closed():
+        log(f"{label}: سوق الذهب الحقيقي مغلق (عطلة نهاية الأسبوع) — تخطي الفحص")
+        return
+
     breaker_active, until = is_circuit_broken(symbol_state)
     if breaker_active:
-        log(f"{label}: قاطع الدائرة فعّال حتى {until} — تخطي الفحص")
+        log(f"{label}: قاطع الدائرة فعّال حتى {until}")
         return
 
     try:
-        candles = get_klines(symbol, INTERVAL, limit=max(LOOKBACK + CONFIRM_BARS + 5, EMA_PERIOD + 5))
+        candles = get_klines(symbol, INTERVAL, limit=max(LOOKBACK_BARS + 10, 250))
     except Exception as e:
         log(f"{label}: فشل جلب البيانات: {e}")
         return
 
-    closes = [c["close"] for c in candles]
-    current_price = closes[-1]
+    if len(candles) < 40:
+        log(f"{label}: بيانات غير كافية ({len(candles)} شمعة)")
+        return
 
-    # تحديث نتيجة آخر إشارة مفتوحة (لأجل قاطع الدائرة)
-    check_open_signal_outcome(symbol_state, current_price)
+    px = get_ticker_price(symbol) or candles[-1]["close"]
+
+    check_open_signal_outcome(symbol_state, px)
     maybe_trigger_circuit_breaker(symbol_state, label)
 
-    direction, highest, lowest = find_breakout_level(closes)
-    ema = calc_ema(closes, EMA_PERIOD)
-    rsi = calc_rsi(closes, RSI_PERIOD)
-    atr = calc_atr(candles, ATR_PERIOD)
+    x = compute_engine(candles, px, symbol_state)
 
-    signal_ok = False
-    reject_reason = None
-
-    if direction is None:
-        reject_reason = "لا يوجد اختراق حالياً"
-    elif not is_breakout_confirmed(closes, direction):
-        reject_reason = f"اختراق غير مؤكد (يحتاج {CONFIRM_BARS} تشغيلات متتالية)"
-    elif direction == "buy" and current_price < ema:
-        reject_reason = f"اختراق صاعد لكن السعر تحت EMA{EMA_PERIOD}"
-    elif direction == "sell" and current_price > ema:
-        reject_reason = f"اختراق هابط لكن السعر فوق EMA{EMA_PERIOD}"
-    elif direction == "buy" and rsi >= 70:
-        reject_reason = f"RSI مرتفع ({rsi:.1f}) — مشترى بزيادة"
-    elif direction == "sell" and rsi <= 30:
-        reject_reason = f"RSI منخفض ({rsi:.1f}) — مباع بزيادة"
-    elif not check_volume(candles):
-        reject_reason = "حجم التداول ضعيف نسبة للمتوسط"
-    elif not check_body_wick(candles[-1], direction):
-        reject_reason = "جسم الشمعة ضعيف نسبة للظل (حركة غير حاسمة)"
-    elif not check_higher_timeframe(symbol, direction):
-        reject_reason = f"الفريم الأعلى ({HTF_INTERVAL}) لا يدعم نفس الاتجاه"
-    else:
-        signal_ok = True
-
-    def send_signal(direction, source, swing=None, reason=""):
-        if direction == "buy":
-            sl = current_price - atr * ATR_SL_MULT
-            tp1 = current_price + atr * ATR_TP1_MULT
-            tp2 = current_price + atr * ATR_TP2_MULT
-            if swing is not None:
-                sl = swing - 0.2 * atr
-                sl = min(sl, current_price - 0.5 * atr)
-                sl = max(sl, current_price - 2 * atr)
+    if x["decision"] in ("BUY", "SELL") and x["plan"]:
+        open_signal = symbol_state.get("open_signal")
+        if open_signal and open_signal.get("direction") == x["decision"]:
+            log(f"{label}: {x['decision']} مؤكدة لكن صفقة بنفس الاتجاه مفتوحة أصلاً — تخطي")
         else:
-            sl = current_price + atr * ATR_SL_MULT
-            tp1 = current_price - atr * ATR_TP1_MULT
-            tp2 = current_price - atr * ATR_TP2_MULT
-            if swing is not None:
-                sl = swing + 0.2 * atr
-                sl = max(sl, current_price + 0.5 * atr)
-                sl = min(sl, current_price + 2 * atr)
-
-        corr = None
-        if other_closes is not None:
-            corr = check_correlation(closes, other_closes, direction)
-
-        notify(format_strong_signal(label, direction, current_price, sl, tp1, tp2, atr, rsi, corr, source=source, reason=reason))
-
-        symbol_state["open_signal"] = {
-            "direction": direction, "entry": current_price,
-            "sl": sl, "tp1": tp1, "tp2": tp2, "source": source,
-            "opened_at": datetime.now(timezone.utc).isoformat(),
-        }
-        symbol_state["last_sent"] = datetime.now(timezone.utc).isoformat()
-        log(f"{label}: تم إرسال إشارة {direction} (المصدر: {source})")
-
-    if signal_ok:
-        send_signal(direction, source="breakout")
-        return
-
-    log(f"{label}: لا اختراق — {reject_reason}")
-
-    # المصدر الثاني: نمط ارتداد الخط الصفري لمؤشر MACD (ZLR)
-    zlr_direction, zlr_reason = evaluate_zlr_signal(closes, candles, ema)
-    if zlr_direction is not None:
-        send_signal(zlr_direction, source="zlr")
-        return
-    if zlr_reason:
-        log(f"{label}: لا ZLR — {zlr_reason}")
-
-    # مصدر مستقل: الدعم/المقاومة (فلتر واحد فقط، بلا أي تأكيد إضافي)
-    sr_recent = minutes_since((symbol_state.get("open_signal") or {}).get("opened_at"))
-    if sr_recent is None or sr_recent >= 30:
-        sr_direction, sr_reason = evaluate_support_resistance_signal(candles, atr, ema)
-        if sr_direction is not None:
-            send_signal(sr_direction, source="sr")
+            notify(format_entry_signal(label, x))
+            symbol_state["open_signal"] = {
+                "direction": x["decision"], "entry": x["plan"]["entry"],
+                "sl": x["plan"]["sl"], "tp1": x["plan"]["tp1"],
+                "opened_at": datetime.now(timezone.utc).isoformat(),
+            }
+            symbol_state["last_sent"] = datetime.now(timezone.utc).isoformat()
+            log(f"{label}: تم إرسال إشارة {x['decision']}")
             return
-        if sr_reason:
-            log(f"{label}: لا S/R — {sr_reason}")
-
-    # مصدر مستقل: Market Prediction Engine (نظام نقاط مركّب: EMA+RSI+MACD+ADX+Volume Profile+Order Flow)
-    mpe_recent = minutes_since((symbol_state.get("open_signal") or {}).get("opened_at"))
-    if mpe_recent is None or mpe_recent >= 30:
-        mpe_direction, mpe_reason, mpe_score = evaluate_market_prediction_signal(closes, candles, ema, atr)
-        if mpe_direction is not None:
-            send_signal(mpe_direction, source="mpe", reason=f"{mpe_score}/6 نقاط")
-            return
-        if mpe_score:
-            log(f"{label}: لا MPE — نقاط غير كافية ({mpe_score}/6)")
-
-    # مصدر مستقل: اختراق منطقة القيمة (Value Area Breakout — Break/Retest/Confirm)
-    vab_recent = minutes_since((symbol_state.get("open_signal") or {}).get("opened_at"))
-    if vab_recent is None or vab_recent >= 20:
-        vab_direction, vab_reason = evaluate_value_area_breakout(closes, candles, atr)
-        if vab_direction is not None:
-            send_signal(vab_direction, source="vab")
-            return
-        if vab_reason:
-            log(f"{label}: لا VAB — {vab_reason}")
-
-    # المصدر الثالث: Pullback (يعالج حالة RSI المتطرف اللي تمنع الاختراق و ZLR)
-    recent = minutes_since((symbol_state.get("open_signal") or {}).get("opened_at"))
-    if recent is None or recent >= 90:
-        pb_direction, pb_reason = evaluate_pullback_signal(closes, candles, ema, atr)
-        if pb_direction is not None:
-            send_signal(pb_direction, source="pullback")
-            return
-        if pb_reason:
-            log(f"{label}: لا Pullback — {pb_reason}")
-
-        rv_direction, rv_reason = evaluate_reversal_signal(closes, candles, ema, atr, symbol)
-        if rv_direction is not None:
-            send_signal(rv_direction, source="reversal")
-            return
-        if rv_reason:
-            log(f"{label}: لا Reversal — {rv_reason}")
 
     elapsed = minutes_since(symbol_state.get("last_sent"))
     if elapsed is None or elapsed >= HOURLY_UPDATE_MINUTES:
-        trend_word = "صاعد (فوق EMA)" if current_price > ema else "هابط (تحت EMA)"
-        notify(format_hourly_update(label, current_price, ema, rsi, trend_word, symbol_state.get("source_stats")))
+        notify(format_status_update(label, x))
         symbol_state["last_sent"] = datetime.now(timezone.utc).isoformat()
+    else:
+        log(f"{label}: {x['decision']} — {x['timing'].get('stage','—')} — {x['reason']}")
 
 
 # ------------------------------------------------------------------
@@ -1160,24 +943,10 @@ def process_symbol(symbol, label, state, other_closes=None):
 # ------------------------------------------------------------------
 def main():
     symbols = parse_symbols()
-    log(f"بدء الفحص — الرموز: {[s[1] for s in symbols]}")
-
+    log(f"بدء الفحص (XAU Engine V21) — الرموز: {[s[1] for s in symbols]}")
     state = load_state()
-
-    # نجلب إغلاقات كل الرموز مسبقاً لاستخدامها بفلتر الترابط (Correlation)
-    closes_by_symbol = {}
     for symbol, label in symbols:
-        try:
-            candles = get_klines(symbol, INTERVAL, limit=50)
-            closes_by_symbol[symbol] = [c["close"] for c in candles]
-        except Exception:
-            closes_by_symbol[symbol] = None
-
-    for symbol, label in symbols:
-        others = [v for k, v in closes_by_symbol.items() if k != symbol and v is not None]
-        other_closes = others[0] if others else None
-        process_symbol(symbol, label, state, other_closes=other_closes)
-
+        process_symbol(symbol, label, state)
     save_state(state)
 
 
