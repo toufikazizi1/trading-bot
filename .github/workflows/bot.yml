@@ -23,7 +23,7 @@ jobs:
         run: pip install -r requirements.txt
       - name: Run bot check
         env:
-          BOT_SYMBOLS: "PAXGUSD|GOLD (PAXG)"
+          BOT_SYMBOLS: "XBTUSD|BTC/USDT,PAXGUSD|GOLD (PAXG)"
           BOT_INTERVAL: "15m"
           BOT_HTF_INTERVAL: "1h"
           BOT_LOOKBACK: "24"
