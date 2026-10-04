@@ -42,6 +42,8 @@ BOT_SYMBOLS = os.environ.get("BOT_SYMBOLS", "XBTUSD|BTC/USDT,PAXGUSD|GOLD (PAXG)
 INTERVAL = os.environ.get("BOT_INTERVAL", "1m")
 LOOKBACK_BARS = int(os.environ.get("BOT_LOOKBACK_BARS", "80"))  # نفس n=80 الأصلي
 WEEKEND_FILTER = os.environ.get("BOT_WEEKEND_FILTER", "1") == "1"
+# الرموز اللي تتبع عطلة سوق الفوركس التقليدي (الذهب فقط افتراضياً — البيتكوين والكريبتو عموماً يتداولو 24/7 بلا عطلة)
+WEEKEND_FILTER_SYMBOLS = {s.strip().upper() for s in os.environ.get("BOT_WEEKEND_FILTER_SYMBOLS", "PAXGUSD").split(",") if s.strip()}
 MAX_CONSECUTIVE_LOSSES = int(os.environ.get("BOT_MAX_CONSECUTIVE_LOSSES", "3"))
 CIRCUIT_BREAKER_PAUSE_HOURS = float(os.environ.get("BOT_CIRCUIT_BREAKER_PAUSE_HOURS", "4"))
 HOURLY_UPDATE_MINUTES = int(os.environ.get("BOT_HOURLY_UPDATE_MINUTES", "60"))
@@ -997,7 +999,7 @@ def process_symbol(symbol, label, state):
     symbol_state = state.setdefault(symbol, {"label": label})
     symbol_state["label"] = label
 
-    if WEEKEND_FILTER and is_forex_market_closed():
+    if WEEKEND_FILTER and symbol.upper() in WEEKEND_FILTER_SYMBOLS and is_forex_market_closed():
         log(f"{label}: سوق الذهب الحقيقي مغلق (عطلة نهاية الأسبوع) — تخطي الفحص")
         return
 
