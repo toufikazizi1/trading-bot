@@ -38,7 +38,7 @@ from datetime import datetime, timezone
 # ------------------------------------------------------------------
 # الإعدادات
 # ------------------------------------------------------------------
-BOT_SYMBOLS = os.environ.get("BOT_SYMBOLS", "PAXGUSD|GOLD (PAXG)")
+BOT_SYMBOLS = os.environ.get("BOT_SYMBOLS", "XBTUSD|BTC/USDT,PAXGUSD|GOLD (PAXG)")
 INTERVAL = os.environ.get("BOT_INTERVAL", "1m")
 LOOKBACK_BARS = int(os.environ.get("BOT_LOOKBACK_BARS", "80"))  # نفس n=80 الأصلي
 WEEKEND_FILTER = os.environ.get("BOT_WEEKEND_FILTER", "1") == "1"
