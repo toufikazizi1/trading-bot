@@ -56,7 +56,7 @@
       "side": "SELL",
       "stage": "MISSED",
       "trigger": 4143.52,
-      "band": 0.9050142857142549,
+      "band": 0.9065571428571106,
       "broken_at": 1791174611.2258644,
       "retest_seen": false,
       "confirmed_at": 0,
