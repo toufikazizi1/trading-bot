@@ -44,6 +44,9 @@ LOOKBACK_BARS = int(os.environ.get("BOT_LOOKBACK_BARS", "80"))  # نفس n=80 ا
 WEEKEND_FILTER = os.environ.get("BOT_WEEKEND_FILTER", "1") == "1"
 # الرموز اللي تتبع عطلة سوق الفوركس التقليدي (الذهب فقط افتراضياً — البيتكوين والكريبتو عموماً يتداولو 24/7 بلا عطلة)
 WEEKEND_FILTER_SYMBOLS = {s.strip().upper() for s in os.environ.get("BOT_WEEKEND_FILTER_SYMBOLS", "PAXGUSD").split(",") if s.strip()}
+# دخول سريع: يدخل عند أول اختراق مؤكد (BREAK) بلا انتظار Retest كامل، بشرط
+# ضغط وتوقع قويين متفقين. أسرع، لكن خطر الدخول في اختراق وهمي أعلى قليلاً.
+FAST_ENTRY = os.environ.get("BOT_FAST_ENTRY", "1") == "1"
 MAX_CONSECUTIVE_LOSSES = int(os.environ.get("BOT_MAX_CONSECUTIVE_LOSSES", "3"))
 CIRCUIT_BREAKER_PAUSE_HOURS = float(os.environ.get("BOT_CIRCUIT_BREAKER_PAUSE_HOURS", "4"))
 HOURLY_UPDATE_MINUTES = int(os.environ.get("BOT_HOURLY_UPDATE_MINUTES", "60"))
@@ -261,6 +264,54 @@ def flow_divergence(candles):
     f1 = qflow(candles[-n:])
     f2 = qflow(candles[-min(12, len(candles)):-n]) if len(candles) > n else 0.0
     return {"bull": pc > 0 and f1 < f2 - 8, "bear": pc < 0 and f1 > f2 + 8}
+
+
+def calc_efficiency(candles, lookback=20):
+    """
+    نسبة الكفاءة الاتجاهية (Efficiency Ratio) — منقولة من مؤشر MST:
+    صافي الحركة (بداية-نهاية) ÷ مجموع الحركة الكلي (كل الخطوات). قريبة من
+    1 = سعر يمشي بخط نظيف (ترند حقيقي)، قريبة من 0 = تذبذب بلا هدف واضح.
+    """
+    if len(candles) < lookback + 1:
+        return 0.0
+    closes = [c["close"] for c in candles]
+    net_move = abs(closes[-1] - closes[-1 - lookback])
+    total_move = sum(abs(closes[i] - closes[i - 1]) for i in range(len(closes) - lookback, len(closes)))
+    return net_move / total_move if total_move > 0 else 0.0
+
+
+def detect_liquidity_sweep(candles, sweep_len=10):
+    """
+    سحب السيولة (Liquidity Sweep) — منقول من مؤشر MST: السعر يكسر قمة/قاع
+    أخير بسرعة (يصطاد أوامر الوقف) ثم يرجع يغلق داخل المدى القديم — نمط
+    انعكاس كلاسيكي، مختلف عن مناطق السيولة الثابتة (Swing clusters).
+    """
+    if len(candles) < sweep_len + 2:
+        return {"buy_sweep": False, "sell_sweep": False}
+    last = candles[-1]
+    window = candles[-1 - sweep_len:-1]
+    prev_high = max(c["high"] for c in window)
+    prev_low = min(c["low"] for c in window)
+    buy_sweep = last["high"] > prev_high and last["close"] < prev_high
+    sell_sweep = last["low"] < prev_low and last["close"] > prev_low
+    return {"buy_sweep": buy_sweep, "sell_sweep": sell_sweep}
+
+
+def detect_absorption(candles, lookback=20):
+    """
+    الامتصاص (Absorption) — منقول من مؤشر MST: حجم تداول كبير (>1.4x
+    المتوسط) بجسم شمعة صغير (<35% من المدى) — يعني بيع/شراء كبير حصل بلا
+    ما يحرك السعر فعلياً، إشارة إجهاد/استيعاب كلاسيكية.
+    """
+    if len(candles) < lookback + 1:
+        return False
+    last = candles[-1]
+    volumes = [c.get("volume", 1) for c in candles[-1 - lookback:-1]]
+    avg_vol = mean(volumes) if volumes else 0
+    rel_vol = (last.get("volume", 1) / avg_vol) if avg_vol > 0 else 1
+    rng = max(last["high"] - last["low"], 1e-9)
+    body_ratio = abs(last["close"] - last["open"]) / rng
+    return rel_vol > 1.4 and body_ratio < 0.35
 
 
 def momentum_state(candles):
@@ -639,7 +690,7 @@ def update_timing(timing, px, a, side, trigger, closed_break, retest_evidence, c
 # ------------------------------------------------------------------
 # محرك القرار الرئيسي (منقول من دالة calc() الأصلية)
 # ------------------------------------------------------------------
-def classify_move_path(work, px, a, vp, flow, raw_f, macro_structure, imm, fd, ms):
+def classify_move_path(work, px, a, vp, flow, raw_f, macro_structure, imm, fd, ms, sweep=None, absorption=False):
     """
     مصنّف مسار الحركة — يفرق بين 3 حالات عند أي حركة عكس الاتجاه الأساسي:
       REVERSAL   انعكاس حقيقي: كسر بنيوي + انقلاب ضغط + استمرار (نقاط >=70)
@@ -687,8 +738,12 @@ def classify_move_path(work, px, a, vp, flow, raw_f, macro_structure, imm, fd, m
     value_lost = (px < vp["poc"] - a * 0.12) if main_dir == "UP" else (px > vp["poc"] + a * 0.12)
     value_extreme = (px >= vp["vah"] - a * 0.25) if main_dir == "UP" else (px <= vp["val"] + a * 0.25)
 
-    exhaustion = (value_extreme and (ms["slow"] or fd["bull"] or flow < 6)) if main_dir == "UP" \
-        else (value_extreme and (ms["slow"] or fd["bear"] or flow > -6))
+    exhaustion = (value_extreme and (ms["slow"] or fd["bull"] or flow < 6 or absorption)) if main_dir == "UP" \
+        else (value_extreme and (ms["slow"] or fd["bear"] or flow > -6 or absorption))
+
+    # سحب سيولة عكس الاتجاه الأساسي (اصطياد وقف خسارة) — دليل انعكاس كلاسيكي
+    sweep = sweep or {"buy_sweep": False, "sell_sweep": False}
+    sweep_against_trend = sweep["buy_sweep"] if main_dir == "UP" else sweep["sell_sweep"]
 
     reversal_score = 0
     if break_anchor: reversal_score += 35
@@ -698,6 +753,7 @@ def classify_move_path(work, px, a, vp, flow, raw_f, macro_structure, imm, fd, m
     if value_lost: reversal_score += 10
     if persistence >= 2: reversal_score += 10
     if exhaustion: reversal_score += 5
+    if sweep_against_trend: reversal_score += 15
 
     counter_bars = sum(1 for z in bars[-3:] if (z["close"] < z["open"] if main_dir == "UP" else z["close"] > z["open"]))
     correction_evidence = (counter_bars >= 1 or exhaustion) and not break_anchor and (flow_still or not flow_flip) and not forecast_flip
@@ -779,7 +835,13 @@ def compute_engine(candles, px, symbol_state):
     upper_reject = rejection_at(work, vp["vah"], "upper") or rejection_at(work, vp["poc"], "upper")
     lower_reject = rejection_at(work, vp["val"], "lower") or rejection_at(work, vp["poc"], "lower")
 
-    bull_exhaust = (near_vah or px > vp["vah"]) and (ms["slow"] or fd["bull"] or upper_reject or flow < 6)
+    # منقول من مؤشر MST: كفاءة الحركة (ترند نظيف مقابل تذبذب)، سحب
+    # السيولة (اصطياد وقف خسارة كلاسيكي)، والامتصاص (حجم كبير/جسم صغير)
+    efficiency = calc_efficiency(work, 20)
+    sweep = detect_liquidity_sweep(work, 10)
+    absorption = detect_absorption(work, 20)
+
+    bull_exhaust = (near_vah or px > vp["vah"]) and (ms["slow"] or fd["bull"] or upper_reject or flow < 6 or absorption or sweep["buy_sweep"])
     strong_bear_cont = (
         (macro_structure == "BEARISH" or imm["bear"] or live_bear_shift)
         and (flow < -8 or raw_f[0]["score"] < -0.18)
@@ -794,15 +856,17 @@ def compute_engine(candles, px, symbol_state):
         and (close_above or recent_above or live_move > max(a * 0.45, 0.60))
         and not fd["bear"]
     )
-    bear_exhaust = (near_val or px < vp["val"]) and not strong_bear_cont and ((ms["slow"] and flow > -6) or fd["bear"] or lower_reject)
+    bear_exhaust = (near_val or px < vp["val"]) and not strong_bear_cont and ((ms["slow"] and flow > -6) or fd["bear"] or lower_reject or absorption or sweep["sell_sweep"])
     wi = wick_info(lc)
     failed_bull = close_above and ((px < vp["vah"] + a * 0.10 and wi["upper_pct"] > 0.42) or flow < 0 or fd["bull"])
     failed_bear = close_below and ((px > vp["val"] - a * 0.10 and wi["lower_pct"] > 0.42) or flow > 0 or fd["bear"])
 
-    strong_bear_mom = not failed_bear and not bear_exhaust and (
+    # كفاءة ضعيفة = سعر يتذبذب بلا هدف، حتى لو بدا فيه زخم آني — نمنع
+    # الدخول "زخم" في هذي الحالة (تقليل الإشارات الكاذبة في سوق متذبذب)
+    strong_bear_mom = not failed_bear and not bear_exhaust and efficiency > 0.40 and (
         strong_bear_cont or (macro_structure == "BEARISH" and flow < -10 and raw_f[0]["score"] < -0.15 and close_below)
     )
-    strong_bull_mom = not failed_bull and not bull_exhaust and (
+    strong_bull_mom = not failed_bull and not bull_exhaust and efficiency > 0.40 and (
         strong_bull_cont or (macro_structure == "BULLISH" and flow > 10 and raw_f[0]["score"] > 0.15 and close_above)
     )
 
@@ -849,6 +913,10 @@ def compute_engine(candles, px, symbol_state):
         decision, reason = "BUY", f"تأكيد BUY: Break + Retest + استمرار. Trigger {timing['trigger']:,.2f}."
     elif timing["stage"] == "CONFIRMED ENTRY" and timing["side"] == "SELL":
         decision, reason = "SELL", f"تأكيد SELL: Break + Retest + استمرار. Trigger {timing['trigger']:,.2f}."
+    elif FAST_ENTRY and timing["stage"] == "BREAK" and timing["side"] == "BUY" and flow > 12 and raw_f[0]["score"] > 0.16:
+        decision, reason = "BUY", f"⚡ دخول سريع عند أول اختراق مؤكد (بلا انتظار Retest). Trigger {timing['trigger']:,.2f}."
+    elif FAST_ENTRY and timing["stage"] == "BREAK" and timing["side"] == "SELL" and flow < -12 and raw_f[0]["score"] < -0.16:
+        decision, reason = "SELL", f"⚡ دخول سريع عند أول كسر مؤكد (بلا انتظار Retest). Trigger {timing['trigger']:,.2f}."
     elif strong_bull_mom:
         decision, reason = "BUY", "BUY زخم صاعد: الاتجاه والبنية والتدفق والتنبؤ متوافقون — زخم وليس مطاردة."
     elif strong_bear_mom:
@@ -872,7 +940,7 @@ def compute_engine(candles, px, symbol_state):
 
     # مصنّف مسار الحركة — يمنع تحويل كل تصحيح بسيط لانعكاس، ويبدل القرار
     # فقط عند انعكاس حقيقي (كسر بنيوي + انقلاب ضغط + استمرار).
-    path_state = classify_move_path(work, px, a, vp, flow, raw_f, macro_structure, imm, fd, ms)
+    path_state = classify_move_path(work, px, a, vp, flow, raw_f, macro_structure, imm, fd, ms, sweep, absorption)
     if path_state["state"] == "REVERSAL":
         new_decision = "BUY" if path_state["direction"] == "UP" else "SELL"
         decision = new_decision
@@ -896,6 +964,7 @@ def compute_engine(candles, px, symbol_state):
         "price": px, "last_close": last, "atr": a, "flow": flow, "vp": vp,
         "structure": structure, "macro_structure": macro_structure,
         "decision": decision, "reason": reason, "timing": timing, "path_state": path_state,
+        "efficiency": efficiency, "sweep": sweep, "absorption": absorption,
         "forecast": raw_f, "liquidity": liquidity, "plan": plan,
         "bull_exhaust": bull_exhaust, "bear_exhaust": bear_exhaust,
         "failed_bull": failed_bull, "failed_bear": failed_bear,
@@ -1011,54 +1080,4 @@ def process_symbol(symbol, label, state):
     try:
         candles = get_klines(symbol, INTERVAL, limit=max(LOOKBACK_BARS + 10, 250))
     except Exception as e:
-        log(f"{label}: فشل جلب البيانات: {e}")
-        return
-
-    if len(candles) < 40:
-        log(f"{label}: بيانات غير كافية ({len(candles)} شمعة)")
-        return
-
-    px = get_ticker_price(symbol) or candles[-1]["close"]
-
-    check_open_signal_outcome(symbol_state, px)
-    maybe_trigger_circuit_breaker(symbol_state, label)
-
-    x = compute_engine(candles, px, symbol_state)
-
-    if x["decision"] in ("BUY", "SELL") and x["plan"]:
-        open_signal = symbol_state.get("open_signal")
-        if open_signal and open_signal.get("direction") == x["decision"]:
-            log(f"{label}: {x['decision']} مؤكدة لكن صفقة بنفس الاتجاه مفتوحة أصلاً — تخطي")
-        else:
-            notify(format_entry_signal(label, x))
-            symbol_state["open_signal"] = {
-                "direction": x["decision"], "entry": x["plan"]["entry"],
-                "sl": x["plan"]["sl"], "tp1": x["plan"]["tp1"],
-                "opened_at": datetime.now(timezone.utc).isoformat(),
-            }
-            symbol_state["last_sent"] = datetime.now(timezone.utc).isoformat()
-            log(f"{label}: تم إرسال إشارة {x['decision']}")
-            return
-
-    elapsed = minutes_since(symbol_state.get("last_sent"))
-    if elapsed is None or elapsed >= HOURLY_UPDATE_MINUTES:
-        notify(format_status_update(label, x))
-        symbol_state["last_sent"] = datetime.now(timezone.utc).isoformat()
-    else:
-        log(f"{label}: {x['decision']} — {x['timing'].get('stage','—')} — {x['reason']}")
-
-
-# ------------------------------------------------------------------
-# البرنامج الرئيسي
-# ------------------------------------------------------------------
-def main():
-    symbols = parse_symbols()
-    log(f"بدء الفحص (XAU Engine V21) — الرموز: {[s[1] for s in symbols]}")
-    state = load_state()
-    for symbol, label in symbols:
-        process_symbol(symbol, label, state)
-    save_state(state)
-
-
-if __name__ == "__main__":
-    main()
+        log(f"{label}: 
