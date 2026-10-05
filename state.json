@@ -1,15 +1,25 @@
 {
   "XBTUSD": {
     "label": "BTC/USDT",
-    "last_sent": "2026-10-05T00:35:09.891353+00:00",
-    "open_signal": null,
+    "last_sent": "2026-10-05T01:30:11.474261+00:00",
+    "open_signal": {
+      "direction": "BUY",
+      "entry": 86889.6,
+      "sl": 86705.78607142858,
+      "tp1": 87077.6892857143,
+      "opened_at": "2026-10-05T01:30:11.474239+00:00"
+    },
     "consecutive_losses": 0,
     "timing": {
-      "side": null,
-      "stage": "IDLE",
-      "trigger": null,
-      "band": 0,
-      "reason": "\u0644\u0627 \u064a\u0648\u062c\u062f Trigger \u0635\u0627\u0644\u062d."
+      "side": "BUY",
+      "stage": "BREAK",
+      "trigger": 86736.5,
+      "band": 45.14142857142894,
+      "broken_at": 1791163811.1166995,
+      "retest_seen": false,
+      "confirmed_at": 0,
+      "reason": "\u062a\u0645 \u062a\u062c\u0627\u0648\u0632 86,736.50\u061b \u0646\u0646\u062a\u0638\u0631 Retest \u0648\u0644\u0627 \u0646\u0637\u0627\u0631\u062f \u0627\u0644\u0633\u0639\u0631.",
+      "closed_break": true
     }
   },
   "PAXGUSD": {
