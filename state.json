@@ -48,7 +48,7 @@
       "side": "BUY",
       "stage": "PRE-TRIGGER",
       "trigger": 4208.98325,
-      "band": 0.7907142857142857,
+      "band": 0.7970142857142946,
       "broken_at": 0,
       "retest_seen": false,
       "confirmed_at": 0,
