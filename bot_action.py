@@ -1080,4 +1080,4 @@ def process_symbol(symbol, label, state):
     try:
         candles = get_klines(symbol, INTERVAL, limit=max(LOOKBACK_BARS + 10, 250))
     except Exception as e:
-        log(f"{label}: 
+        log(f"{label}:
