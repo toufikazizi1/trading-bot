@@ -1080,4 +1080,54 @@ def process_symbol(symbol, label, state):
     try:
         candles = get_klines(symbol, INTERVAL, limit=max(LOOKBACK_BARS + 10, 250))
     except Exception as e:
-        log(f"{label}: 
+        log(f"{label}: data fetch failed: {e}")
+        return
+
+    if len(candles) < 40:
+        log(f"{label}: بيانات غير كافية ({len(candles)} شمعة)")
+        return
+
+    px = get_ticker_price(symbol) or candles[-1]["close"]
+
+    check_open_signal_outcome(symbol_state, px)
+    maybe_trigger_circuit_breaker(symbol_state, label)
+
+    x = compute_engine(candles, px, symbol_state)
+
+    if x["decision"] in ("BUY", "SELL") and x["plan"]:
+        open_signal = symbol_state.get("open_signal")
+        if open_signal and open_signal.get("direction") == x["decision"]:
+            log(f"{label}: {x['decision']} مؤكدة لكن صفقة بنفس الاتجاه مفتوحة أصلاً — تخطي")
+        else:
+            notify(format_entry_signal(label, x))
+            symbol_state["open_signal"] = {
+                "direction": x["decision"], "entry": x["plan"]["entry"],
+                "sl": x["plan"]["sl"], "tp1": x["plan"]["tp1"],
+                "opened_at": datetime.now(timezone.utc).isoformat(),
+            }
+            symbol_state["last_sent"] = datetime.now(timezone.utc).isoformat()
+            log(f"{label}: تم إرسال إشارة {x['decision']}")
+            return
+
+    elapsed = minutes_since(symbol_state.get("last_sent"))
+    if elapsed is None or elapsed >= HOURLY_UPDATE_MINUTES:
+        notify(format_status_update(label, x))
+        symbol_state["last_sent"] = datetime.now(timezone.utc).isoformat()
+    else:
+        log(f"{label}: {x['decision']} — {x['timing'].get('stage','—')} — {x['reason']}")
+
+
+# ------------------------------------------------------------------
+# البرنامج الرئيسي
+# ------------------------------------------------------------------
+def main():
+    symbols = parse_symbols()
+    log(f"بدء الفحص (XAU Engine V21) — الرموز: {[s[1] for s in symbols]}")
+    state = load_state()
+    for symbol, label in symbols:
+        process_symbol(symbol, label, state)
+    save_state(state)
+
+
+if __name__ == "__main__":
+    main()
