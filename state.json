@@ -5,15 +5,15 @@
     "open_signal": null,
     "consecutive_losses": 0,
     "timing": {
-      "side": "BUY",
-      "stage": "MISSED",
-      "trigger": 83308.09999999999,
-      "band": 7.3697142857140605,
-      "broken_at": 1791866115.8409739,
+      "side": "SELL",
+      "stage": "PRE-TRIGGER",
+      "trigger": 80951.2,
+      "band": 7.846714285713762,
+      "broken_at": 0,
       "retest_seen": false,
       "confirmed_at": 0,
-      "reason": "\u0641\u0627\u062a \u0648\u0642\u062a \u0627\u0644\u062f\u062e\u0648\u0644 \u2014 \u0644\u0627 \u0645\u0637\u0627\u0631\u062f\u0629.",
-      "closed_break": true
+      "reason": "\u0646\u0646\u062a\u0638\u0631 \u0625\u063a\u0644\u0627\u0642 \u0634\u0645\u0639\u0629 \u062e\u0627\u0631\u062c 80,951.20.",
+      "closed_break": false
     },
     "pause_until": null
   },
