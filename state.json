@@ -8,7 +8,7 @@
       "side": "SELL",
       "stage": "PRE-TRIGGER",
       "trigger": 82578.31,
-      "band": 3.614142857142932,
+      "band": 3.5292857142857144,
       "broken_at": 0,
       "retest_seen": false,
       "confirmed_at": 0,
@@ -19,7 +19,7 @@
   },
   "PAXGUSD": {
     "label": "GOLD (PAXG)",
-    "last_sent": "2026-10-13T05:00:12.312040+00:00",
+    "last_sent": "2026-10-13T06:05:16.374163+00:00",
     "open_signal": null,
     "consecutive_losses": 0,
     "pause_until": null,
