@@ -6,13 +6,13 @@
     "consecutive_losses": 1,
     "timing": {
       "side": "SELL",
-      "stage": "BREAK",
+      "stage": "MISSED",
       "trigger": 81308.7125,
-      "band": 12.457285714286199,
+      "band": 11.373428571428832,
       "broken_at": 1791852311.9515924,
       "retest_seen": false,
       "confirmed_at": 0,
-      "reason": "\u062a\u0645 \u062a\u062c\u0627\u0648\u0632 81,308.71\u061b \u0646\u0646\u062a\u0638\u0631 Retest \u0648\u0644\u0627 \u0646\u0637\u0627\u0631\u062f \u0627\u0644\u0633\u0639\u0631.",
+      "reason": "\u0641\u0627\u062a \u0648\u0642\u062a \u0627\u0644\u062f\u062e\u0648\u0644 \u2014 \u0644\u0627 \u0645\u0637\u0627\u0631\u062f\u0629.",
       "closed_break": true
     },
     "pause_until": null
@@ -42,15 +42,11 @@
       }
     },
     "timing": {
-      "side": "SELL",
-      "stage": "BREAK",
-      "trigger": 4163.166,
-      "band": 0.35,
-      "broken_at": 1791852312.1574068,
-      "retest_seen": false,
-      "confirmed_at": 0,
-      "reason": "\u062a\u0645 \u062a\u062c\u0627\u0648\u0632 4,163.17\u061b \u0646\u0646\u062a\u0638\u0631 Retest \u0648\u0644\u0627 \u0646\u0637\u0627\u0631\u062f \u0627\u0644\u0633\u0639\u0631.",
-      "closed_break": true
+      "side": null,
+      "stage": "IDLE",
+      "trigger": null,
+      "band": 0,
+      "reason": "\u0644\u0627 \u064a\u0648\u062c\u062f Trigger \u0635\u0627\u0644\u062d."
     }
   }
 }
