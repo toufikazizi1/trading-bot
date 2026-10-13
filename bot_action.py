@@ -298,7 +298,9 @@ def flow_divergence(candles):
     f1 = qflow(candles[-n:])
     f2 = qflow(candles[-min(12, len(candles)):-n]) if len(candles) > n else 0.0
     return {"bull": pc > 0 and f1 < f2 - 8, "bear": pc < 0 and f1 > f2 + 8}
-  def calc_efficiency(candles, lookback=20):
+
+
+def calc_efficiency(candles, lookback=20):
     """
     نسبة الكفاءة الاتجاهية (Efficiency Ratio) — منقولة من مؤشر MST:
     صافي الحركة (بداية-نهاية) ÷ مجموع الحركة الكلي (كل الخطوات). قريبة من
