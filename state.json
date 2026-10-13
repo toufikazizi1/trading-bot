@@ -1,19 +1,25 @@
 {
   "XBTUSD": {
     "label": "BTC/USDT",
-    "last_sent": "2026-10-13T15:00:11.501737+00:00",
-    "open_signal": null,
+    "last_sent": "2026-10-13T15:25:11.771227+00:00",
+    "open_signal": {
+      "direction": "BUY",
+      "entry": 83628.9,
+      "sl": 83587.65007142858,
+      "tp1": 83668.07678571428,
+      "opened_at": "2026-10-13T15:25:11.771211+00:00"
+    },
     "consecutive_losses": 1,
     "timing": {
-      "side": "SELL",
-      "stage": "PRE-TRIGGER",
-      "trigger": 83117.6625,
-      "band": 8.214428571428309,
-      "broken_at": 0,
+      "side": "BUY",
+      "stage": "BREAK",
+      "trigger": 83618.0,
+      "band": 9.402428571428233,
+      "broken_at": 1791905111.3246334,
       "retest_seen": false,
       "confirmed_at": 0,
-      "reason": "\u0646\u0646\u062a\u0638\u0631 \u0625\u063a\u0644\u0627\u0642 \u0634\u0645\u0639\u0629 \u062e\u0627\u0631\u062c 83,117.66.",
-      "closed_break": false
+      "reason": "\u062a\u0645 \u062a\u062c\u0627\u0648\u0632 83,618.00\u061b \u0646\u0646\u062a\u0638\u0631 Retest \u0648\u0644\u0627 \u0646\u0637\u0627\u0631\u062f \u0627\u0644\u0633\u0639\u0631.",
+      "closed_break": true
     },
     "pause_until": null
   },
@@ -42,11 +48,15 @@
       }
     },
     "timing": {
-      "side": null,
-      "stage": "IDLE",
-      "trigger": null,
-      "band": 0,
-      "reason": "\u0644\u0627 \u064a\u0648\u062c\u062f Trigger \u0635\u0627\u0644\u062d."
+      "side": "BUY",
+      "stage": "PRE-TRIGGER",
+      "trigger": 4184.88,
+      "band": 0.35,
+      "broken_at": 0,
+      "retest_seen": false,
+      "confirmed_at": 0,
+      "reason": "\u0646\u0646\u062a\u0638\u0631 \u0625\u063a\u0644\u0627\u0642 \u0634\u0645\u0639\u0629 \u062e\u0627\u0631\u062c 4,184.88.",
+      "closed_break": false
     }
   }
 }
