@@ -17,14 +17,17 @@ S/R, MPE, VAB, ZLR...) تم حذفها بالكامل كيما طُلب.
 
 ما تم إسقاطه عمداً (بصراحة، بلا تمويه):
   - طبقة "Live Tick Shift" الأصلية (liveBearShift/liveBullShift/liveMove)
-    كانت مبنية على تدفق Ticks مستمر داخل متصفح مفتوح طول الوقت. البوت يستعمل
-    سعر Biquote الحي عند كل تشغيل، وليس تدفق Ticks مستمراً ما لم يُشغّل عبر WebSocket.
+    كانت مبنية على تدفق Ticks مستمر داخل متصفح مفتوح طول الوقت. بوتنا يخدم
+    دقيقة بدقيقة عبر GitHub Actions بلا اتصال مستمر، فتم تقريبها باستدعاء
+    Kraken Ticker (آخر سعر تداول حقيقي لحظة التشغيل) مقارنة بآخر شمعة
+    مغلقة — تقريب معقول، ماشي تدفق Ticks حي حقيقي.
   - التقويم الاقتصادي (Macro Calendar) كان Hardcoded بتواريخ 2026 محددة في
     الملف الأصلي، ميزة واجهة فقط (عرض على الشاشة)، ما تم نقلها.
   - تتبع الدقة كان عبر localStorage (متصفح)؛ استبدلناه بتتبع مشابه داخل
     state.json (لكل أفق تنبؤ +1/+2/+3).
-  - مصدر البيانات: Biquote.io، الرمز XAUUSD (ذهب مقابل الدولار).
-    الشموع المفتوحة تُستبعد وتُرتب الشموع زمنياً قبل التحليل.
+  - مصدر البيانات: الملف الأصلي يستعمل Biquote.io (XAU/USD حقيقي). ما
+    قدرناش نتأكد من توفر/استقرار هذا الـ API من سيرفرات GitHub Actions
+    (بلا توثيق رسمي)، فبقينا على Kraken (PAXG/USD) كيما كان بوتنا القديم.
 """
 
 import os
@@ -35,12 +38,12 @@ from datetime import datetime, timezone
 # ------------------------------------------------------------------
 # الإعدادات
 # ------------------------------------------------------------------
-BOT_SYMBOLS = os.environ.get("BOT_SYMBOLS", "XAUUSD|GOLD (XAUUSD)")
+BOT_SYMBOLS = os.environ.get("BOT_SYMBOLS", "XBTUSD|BTC/USDT,PAXGUSD|GOLD (PAXG)")
 INTERVAL = os.environ.get("BOT_INTERVAL", "1m")
 LOOKBACK_BARS = int(os.environ.get("BOT_LOOKBACK_BARS", "80"))  # نفس n=80 الأصلي
 WEEKEND_FILTER = os.environ.get("BOT_WEEKEND_FILTER", "1") == "1"
 # الرموز اللي تتبع عطلة سوق الفوركس التقليدي (الذهب فقط افتراضياً — البيتكوين والكريبتو عموماً يتداولو 24/7 بلا عطلة)
-WEEKEND_FILTER_SYMBOLS = {s.strip().upper() for s in os.environ.get("BOT_WEEKEND_FILTER_SYMBOLS", "XAUUSD").split(",") if s.strip()}
+WEEKEND_FILTER_SYMBOLS = {s.strip().upper() for s in os.environ.get("BOT_WEEKEND_FILTER_SYMBOLS", "PAXGUSD").split(",") if s.strip()}
 # دخول سريع: يدخل عند أول اختراق مؤكد (BREAK) بلا انتظار Retest كامل، بشرط
 # ضغط وتوقع قويين متفقين. أسرع، لكن خطر الدخول في اختراق وهمي أعلى قليلاً.
 FAST_ENTRY = os.environ.get("BOT_FAST_ENTRY", "1") == "1"
@@ -52,8 +55,9 @@ TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
 
 STATE_FILE = "state.json"
-BIQUOTE_BASE_URL = "https://biquote.io/api"
-BIQUOTE_INTERVALS = {"1m", "5m", "15m", "30m", "1h", "4h", "1d"}
+KRAKEN_OHLC_URL = "https://api.kraken.com/0/public/OHLC"
+KRAKEN_TICKER_URL = "https://api.kraken.com/0/public/Ticker"
+KRAKEN_INTERVAL_MINUTES = {"1m": 1, "5m": 5, "15m": 15, "30m": 30, "1h": 60}
 
 
 # ------------------------------------------------------------------
@@ -70,11 +74,7 @@ def notify(msg):
         return
     try:
         url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-        response = requests.post(url, json={"chat_id": TELEGRAM_CHAT_ID, "text": msg, "parse_mode": "HTML"}, timeout=10)
-        response.raise_for_status()
-        payload = response.json()
-        if not payload.get("ok", False):
-            raise RuntimeError(payload.get("description", "Telegram API رفض الرسالة"))
+        requests.post(url, json={"chat_id": TELEGRAM_CHAT_ID, "text": msg, "parse_mode": "HTML"}, timeout=10)
     except Exception as e:
         log(f"تعذر إرسال إشعار تليجرام: {e}")
 
@@ -122,81 +122,47 @@ def is_forex_market_closed(now=None):
 
 
 # ------------------------------------------------------------------
-# جلب بيانات الذهب من Biquote.io
+# جلب البيانات من Kraken
 # ------------------------------------------------------------------
 def get_klines(pair, interval, limit=300):
-    """يجلب شموع OHLC من Biquote، ويستبعد الشمعة المفتوحة ويرتبها زمنياً."""
-    interval = str(interval).strip().lower()
-    if interval not in BIQUOTE_INTERVALS:
-        raise ValueError(f"فترة زمنية غير مدعومة من Biquote: {interval}")
-    requested = max(1, min(int(limit), 1000))
-    resp = requests.get(
-        f"{BIQUOTE_BASE_URL}/{pair}/ohlc",
-        params={"interval": interval, "limit": requested}, timeout=20,
-    )
+    minutes = KRAKEN_INTERVAL_MINUTES.get(interval)
+    if minutes is None:
+        raise ValueError(f"فترة زمنية غير مدعومة: {interval}")
+    resp = requests.get(KRAKEN_OHLC_URL, params={"pair": pair, "interval": minutes}, timeout=15)
     resp.raise_for_status()
     raw = resp.json()
-    bars = raw.get("bars") if isinstance(raw, dict) else None
-    if not isinstance(bars, list):
-        raise RuntimeError(f"استجابة Biquote غير متوقعة للرمز {pair}")
-
-    candles = []
-    for bar in bars:
-        if not isinstance(bar, dict) or bar.get("isOpen") is True:
-            continue
-        stamp = bar.get("openTime")
-        if not stamp:
-            continue
-        try:
-            dt = datetime.fromisoformat(str(stamp).replace("Z", "+00:00"))
-            if dt.tzinfo is None:
-                dt = dt.replace(tzinfo=timezone.utc)
-            candle = {
-                "open_time": int(dt.timestamp()),
-                "open": float(bar["open"]),
-                "high": float(bar["high"]),
-                "low": float(bar["low"]),
-                "close": float(bar["close"]),
-                # CFD volume isn't necessarily real traded volume; tickVolume is only a proxy.
-                "volume": float(bar.get("tickVolume", bar.get("volume", 1)) or 1),
-            }
-            if candle["high"] < max(candle["open"], candle["close"], candle["low"]):
-                continue
-            if candle["low"] > min(candle["open"], candle["close"], candle["high"]):
-                continue
-            candles.append(candle)
-        except (KeyError, TypeError, ValueError, OverflowError):
-            continue
-
-    # Biquote can return newest-first; engine expects oldest-first.
-    candles.sort(key=lambda c: c["open_time"])
-    unique = {c["open_time"]: c for c in candles}
-    candles = [unique[t] for t in sorted(unique)]
-    if not candles:
-        raise RuntimeError(f"Biquote لم يُرجع شموعاً مغلقة صالحة للرمز {pair}")
-    return candles[-requested:]
+    if raw.get("error"):
+        raise RuntimeError("; ".join(raw["error"]) or "خطأ من Kraken")
+    result = raw.get("result", {})
+    ohlc_key = next((k for k in result if k != "last"), None)
+    if not ohlc_key:
+        raise RuntimeError(f"لا توجد بيانات: {pair}")
+    candles = [
+        {
+            "open_time": int(row[0]), "open": float(row[1]), "high": float(row[2]),
+            "low": float(row[3]), "close": float(row[4]), "volume": float(row[6]),
+        }
+        for row in result[ohlc_key]
+    ]
+    return candles[-limit:] if limit else candles
 
 
 def get_ticker_price(pair):
-    """يجلب السعر المتوسط الحي (mid) من Biquote، مع رفض الأسعار القديمة."""
+    """آخر سعر تداول حقيقي لحظة التشغيل — تقريبنا لـ 'px' (السعر الحي) في الملف الأصلي."""
     try:
-        resp = requests.get(
-            f"{BIQUOTE_BASE_URL}/{pair}", params={"allowStale": "false"}, timeout=10
-        )
-        if resp.status_code == 404:
-            log(f"Biquote: لا يوجد سعر حديث متاح للرمز {pair}")
-            return None
+        resp = requests.get(KRAKEN_TICKER_URL, params={"pair": pair}, timeout=10)
         resp.raise_for_status()
         raw = resp.json()
-        if not isinstance(raw, dict) or raw.get("stale") is True:
+        if raw.get("error"):
             return None
-        mid = raw.get("mid")
-        price = float(mid) if mid is not None else 0.0
-        return price if price > 0 else None
+        result = raw.get("result", {})
+        key = next(iter(result), None)
+        if not key:
+            return None
+        return float(result[key]["c"][0])
     except Exception as e:
-        log(f"تعذر جلب سعر Biquote: {e}")
+        log(f"تعذر جلب سعر Ticker: {e}")
         return None
-
 
 
 # ------------------------------------------------------------------
@@ -598,7 +564,7 @@ def market_plan(a, px, decision, liquidity):
     if decision not in ("BUY", "SELL"):
         return None
     zones = liquidity.get("zones", [])
-      min_gap = max(a * 0.32, 0.35)
+    min_gap = max(a * 0.32, 0.35)
     side = 1 if decision == "BUY" else -1
     directional = [z for z in zones if (z["price"] > px + min_gap if side > 0 else z["price"] < px - min_gap)]
     directional.sort(key=lambda z: z["price"] if side > 0 else -z["price"])
@@ -639,8 +605,7 @@ def market_plan(a, px, decision, liquidity):
 # آلة حالة التوقيت Break → Retest → Confirm (محفوظة في state.json)
 # ------------------------------------------------------------------
 def interval_seconds():
-    seconds = {"1m": 60, "5m": 300, "15m": 900, "30m": 1800, "1h": 3600, "4h": 14400, "1d": 86400}
-    return seconds.get(INTERVAL, 60)
+    return KRAKEN_INTERVAL_MINUTES.get(INTERVAL, 1) * 60
 
 
 def break_retest_evidence(candles, lc, px, a, side, trigger, flow, forecast_score):
@@ -1115,47 +1080,6 @@ def process_symbol(symbol, label, state):
     try:
         candles = get_klines(symbol, INTERVAL, limit=max(LOOKBACK_BARS + 10, 250))
     except Exception as e:
-        log(f"{label}: data fetch failed: {e}")
-        return
-
-    if len(candles) < 40:
-        log(f"{label}: بيانات غير كافية ({len(candles)} شمعة)")
-        return
-
-    px = get_ticker_price(symbol) or candles[-1]["close"]
-
-    check_open_signal_outcome(symbol_state, px)
-    maybe_trigger_circuit_breaker(symbol_state, label)
-    breaker_active, until = is_circuit_broken(symbol_state)
-    if breaker_active:
-        log(f"{label}: تم تفعيل قاطع الدائرة بعد نتيجة الإشارة؛ توقف حتى {until}")
-        return
-
-    x = compute_engine(candles, px, symbol_state)
-
-    if x["decision"] in ("BUY", "SELL") and x["plan"]:
-        open_signal = symbol_state.get("open_signal")
-        if open_signal:
-            log(
-                f"{label}: ظهرت إشارة {x['decision']} لكن توجد إشارة "
-                f"{open_signal.get('direction')} لم تصل إلى TP1 أو SL — تخطي الجديدة"
-            )
-        else:
-            notify(format_entry_signal(label, x))
-            symbol_state["open_signal"] = {
-                "direction": x["decision"], "entry": x["plan"]["entry"],
-                "sl": x["plan"]["sl"], "tp1": x["plan"]["tp1"],
-                "opened_at": datetime.now(timezone.utc).isoformat(),
-            }
-            symbol_state["last_sent"] = datetime.now(timezone.utc).isoformat()
-            log(f"{label}: تم إرسال إشارة {x['decision']}")
-            return
-
-    elapsed = minutes_since(symbol_state.get("last_sent"))
-    if elapsed is None or elapsed >= HOURLY_UPDATE_MINUTES:
-        notify(format_status_update(label, x))
-        symbol_state["last_sent"] = datetime.now(timezone.utc).isoformat()
-    else:
         log(f"{label}: {x['decision']} — {x['timing'].get('stage','—')} — {x['reason']}")
 
 
