@@ -558,8 +558,6 @@ def institutional_liquidity(candles, vp, a, px):
         f" • السعر الحالي {px:,.2f} • ATR {a:.2f}"
     ) if top else "لا توجد مناطق سيولة كافية."
     return {"zones": top, "summary": summary}
-
-
 def market_plan(a, px, decision, liquidity):
     if decision not in ("BUY", "SELL"):
         return None
@@ -631,7 +629,7 @@ def break_retest_evidence(candles, lc, px, a, side, trigger, flow, forecast_scor
     }
 
 
-def update_timing(timing, px, a, side, trigger, closed_break, retest_evidence, confirm_evidence):
+def update_timing(timing, px, a, side, trigger, closed_break, confirm_evidence):
     import time
     if not side or trigger is None or a <= 0:
         return {"side": side, "stage": "IDLE", "trigger": trigger, "band": 0, "reason": "لا يوجد Trigger صالح."}
@@ -642,44 +640,37 @@ def update_timing(timing, px, a, side, trigger, closed_break, retest_evidence, c
 
     if timing.get("side") != side or timing.get("trigger") is None or abs(timing["trigger"] - trigger) > a * 0.65:
         timing = {"side": side, "stage": "PRE-TRIGGER", "trigger": trigger, "band": band,
-                  "broken_at": 0, "retest_seen": False, "confirmed_at": 0}
+                  "broken_at": 0, "confirmed_at": 0}
     else:
         timing["band"] = band
 
     t = timing["trigger"]
-    if timing["stage"] == "BREAK" and timing.get("broken_at", 0) > 0 and now - timing["broken_at"] > max_retest_age and not timing.get("retest_seen"):
+    if timing["stage"] == "BREAK" and timing.get("broken_at", 0) > 0 and now - timing["broken_at"] > max_retest_age:
         timing["stage"] = "MISSED"
 
     if side == "SELL":
-        if timing["stage"] == "BREAK" and px < t - max(a * 0.65, 1.2) and not timing.get("retest_seen"):
+        if timing["stage"] == "BREAK" and px < t - max(a * 0.65, 1.2):
             timing["stage"] = "MISSED"
         elif timing["stage"] == "PRE-TRIGGER" and closed_break:
             timing["stage"] = "BREAK"
             timing["broken_at"] = now
-        elif timing["stage"] == "BREAK" and retest_evidence:
-            timing["stage"] = "RETEST"
-            timing["retest_seen"] = True
-        elif timing["stage"] == "RETEST" and confirm_evidence:
+        elif timing["stage"] == "BREAK" and confirm_evidence:
             timing["stage"] = "CONFIRMED ENTRY"
             timing["confirmed_at"] = now
     else:  # BUY
-        if timing["stage"] == "BREAK" and px > t + max(a * 0.65, 1.2) and not timing.get("retest_seen"):
+        if timing["stage"] == "BREAK" and px > t + max(a * 0.65, 1.2):
             timing["stage"] = "MISSED"
         elif timing["stage"] == "PRE-TRIGGER" and closed_break:
             timing["stage"] = "BREAK"
             timing["broken_at"] = now
-        elif timing["stage"] == "BREAK" and retest_evidence:
-            timing["stage"] = "RETEST"
-            timing["retest_seen"] = True
-        elif timing["stage"] == "RETEST" and confirm_evidence:
+        elif timing["stage"] == "BREAK" and confirm_evidence:
             timing["stage"] = "CONFIRMED ENTRY"
             timing["confirmed_at"] = now
 
     reasons = {
         "PRE-TRIGGER": f"ننتظر إغلاق شمعة خارج {t:,.2f}.",
-        "BREAK": f"تم تجاوز {t:,.2f}؛ ننتظر Retest ولا نطارد السعر.",
-        "RETEST": "السعر داخل منطقة التأكيد؛ ننتظر استمراراً واضحاً.",
-        "CONFIRMED ENTRY": f"تأكيد Break + Retest + استمرار. Trigger {t:,.2f}.",
+        "BREAK": f"تم تجاوز {t:,.2f}؛ ننتظر تأكيد الاستمرار ولا نطارد السعر.",
+        "CONFIRMED ENTRY": f"تأكيد Break + استمرار. Trigger {t:,.2f}.",
         "MISSED": "فات وقت الدخول — لا مطاردة.",
     }
     timing["reason"] = reasons.get(timing["stage"], "—")
@@ -890,12 +881,11 @@ def compute_engine(candles, px, symbol_state):
     bear_break = ((ev["bear_break_closed"] if ev else False) or legacy_bear_break) and flow < -5 and raw_f[0]["score"] < -0.08 and not bear_exhaust and not failed_bear
 
     closed_break_for_side = (ev["bull_break_closed"] if timing_side == "BUY" else ev["bear_break_closed"] if timing_side == "SELL" else False) if ev else False
-    retest_for_side = (ev["bull_retest"] if timing_side == "BUY" else ev["bear_retest"] if timing_side == "SELL" else False) if ev else False
     confirm_for_side = (ev["bull_confirm"] if timing_side == "BUY" else ev["bear_confirm"] if timing_side == "SELL" else False) if ev else False
 
     timing = symbol_state.get("timing") or {}
     if timing_side:
-        timing = update_timing(timing, px, a, timing_side, timing_trigger, closed_break_for_side, retest_for_side, confirm_for_side)
+        timing = update_timing(timing, px, a, timing_side, timing_trigger, closed_break_for_side, confirm_for_side)
     else:
         timing = {"side": None, "stage": "IDLE", "trigger": None, "band": 0, "reason": "لا يوجد Trigger صالح."}
     symbol_state["timing"] = timing
@@ -910,31 +900,25 @@ def compute_engine(candles, px, symbol_state):
     elif failed_bear:
         reason = "كسر هابط فقد القبول؛ لا مطاردة."
     elif timing["stage"] == "CONFIRMED ENTRY" and timing["side"] == "BUY":
-        decision, reason = "BUY", f"تأكيد BUY: Break + Retest + استمرار. Trigger {timing['trigger']:,.2f}."
+        decision, reason = "BUY", f"تأكيد BUY: Break + استمرار. Trigger {timing['trigger']:,.2f}."
     elif timing["stage"] == "CONFIRMED ENTRY" and timing["side"] == "SELL":
-        decision, reason = "SELL", f"تأكيد SELL: Break + Retest + استمرار. Trigger {timing['trigger']:,.2f}."
-    elif FAST_ENTRY and timing["stage"] == "BREAK" and timing["side"] == "BUY" and flow > 12 and raw_f[0]["score"] > 0.16:
-        decision, reason = "BUY", f"⚡ دخول سريع عند أول اختراق مؤكد (بلا انتظار Retest). Trigger {timing['trigger']:,.2f}."
-    elif FAST_ENTRY and timing["stage"] == "BREAK" and timing["side"] == "SELL" and flow < -12 and raw_f[0]["score"] < -0.16:
-        decision, reason = "SELL", f"⚡ دخول سريع عند أول كسر مؤكد (بلا انتظار Retest). Trigger {timing['trigger']:,.2f}."
+        decision, reason = "SELL", f"تأكيد SELL: Break + استمرار. Trigger {timing['trigger']:,.2f}."
     elif strong_bull_mom:
         decision, reason = "BUY", "BUY زخم صاعد: الاتجاه والبنية والتدفق والتنبؤ متوافقون — زخم وليس مطاردة."
     elif strong_bear_mom:
         decision, reason = "SELL", "SELL زخم هابط: الاتجاه والبنية والتدفق والتنبؤ متوافقون — زخم وليس مطاردة."
     elif timing["stage"] == "MISSED":
         reason = timing["reason"]
-    elif timing["stage"] == "RETEST":
-        reason = f"RETEST {timing_side}: السعر داخل منطقة التأكيد؛ ننتظر استمراراً."
     elif timing["stage"] == "BREAK":
-        reason = f"BREAK {timing_side}: تجاوز Trigger {timing['trigger']:,.2f}؛ ننتظر Retest."
+        reason = f"BREAK {timing_side}: تجاوز Trigger {timing['trigger']:,.2f}؛ ننتظر تأكيد الاستمرار."
     elif live_bull_shift or micro_bull:
-        decision, reason = "BUY WATCH", f"تحول صاعد؛ ننتظر Break ثم Retest قرب {timing_trigger:,.2f}." if timing_trigger else "تحول صاعد مبكر."
+        decision, reason = "BUY WATCH", f"تحول صاعد؛ ننتظر Break ثم تأكيد قرب {timing_trigger:,.2f}." if timing_trigger else "تحول صاعد مبكر."
     elif live_bear_shift or micro_bear:
-        decision, reason = "SELL WATCH", f"تحول هابط؛ ننتظر Break ثم Retest قرب {timing_trigger:,.2f}." if timing_trigger else "تحول هابط مبكر."
+        decision, reason = "SELL WATCH", f"تحول هابط؛ ننتظر Break ثم تأكيد قرب {timing_trigger:,.2f}." if timing_trigger else "تحول هابط مبكر."
     elif bull_break:
-        decision, reason = "BUY WATCH", "اختراق صاعد؛ ننتظر Break/Retest صالح."
+        decision, reason = "BUY WATCH", "اختراق صاعد؛ ننتظر Break مؤكد."
     elif bear_break:
-        decision, reason = "SELL WATCH", "كسر هابط؛ ننتظر Break/Retest صالح."
+        decision, reason = "SELL WATCH", "كسر هابط؛ ننتظر Break مؤكد."
     elif inside:
         reason = "السعر داخل منطقة القيمة؛ لا دخول من المنتصف."
 
@@ -1034,7 +1018,7 @@ def format_entry_signal(label, x):
         f"ATR: {x['atr']:.2f} | Order Flow: {x['flow']:+.1f} | البنية: {x['structure']}\n"
         f"مسار الحركة: {x['path_state']['state']} ({x['path_state']['confidence']}%)\n"
         f"السبب: {x['reason']}\n\n"
-        f"⚠️ إشارة تحليلية (Volume Profile + Order Flow + Break/Retest/Confirm)، "
+        f"⚠️ إشارة تحليلية (Volume Profile + Order Flow + Break/Confirm)، "
         f"ليست ضمان نجاح ولا نصيحة مالية. التنفيذ يدوي بقرارك."
     )
 
@@ -1080,7 +1064,39 @@ def process_symbol(symbol, label, state):
     try:
         candles = get_klines(symbol, INTERVAL, limit=max(LOOKBACK_BARS + 10, 250))
     except Exception as e:
-        log(f"{label}: {x['decision']} — {x['timing'].get('stage','—')} — {x['reason']}")
+        log(f"{label}: data fetch failed: {e}")
+        return
+
+    if len(candles) < 40:
+        log(f"{label}: not enough candles ({len(candles)})")
+        return
+
+    px = get_ticker_price(symbol) or candles[-1]["close"]
+    check_open_signal_outcome(symbol_state, px)
+    maybe_trigger_circuit_breaker(symbol_state, label)
+    x = compute_engine(candles, px, symbol_state)
+
+    now_iso = datetime.now(timezone.utc).isoformat()
+    if x["decision"] in ("BUY", "SELL") and x["plan"]:
+        open_signal = symbol_state.get("open_signal")
+        if open_signal and open_signal.get("direction") == x["decision"]:
+            log(f"{label}: {x['decision']} signal already open - skip")
+        else:
+            notify(format_entry_signal(label, x))
+            symbol_state["open_signal"] = {
+                "direction": x["decision"], "entry": x["plan"]["entry"],
+                "sl": x["plan"]["sl"], "tp1": x["plan"]["tp1"], "opened_at": now_iso,
+            }
+            symbol_state["last_sent"] = now_iso
+            log(f"{label}: signal sent {x['decision']}")
+            return
+
+    elapsed = minutes_since(symbol_state.get("last_sent"))
+    if elapsed is None or elapsed >= HOURLY_UPDATE_MINUTES:
+        notify(format_status_update(label, x))
+        symbol_state["last_sent"] = now_iso
+    else:
+        log(f"{label}: {x['decision']} - {x['timing'].get('stage', '-')} - {x['reason']}")
 
 
 # ------------------------------------------------------------------
