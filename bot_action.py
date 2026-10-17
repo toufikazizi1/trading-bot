@@ -51,13 +51,37 @@ MAX_CONSECUTIVE_LOSSES = int(os.environ.get("BOT_MAX_CONSECUTIVE_LOSSES", "3"))
 CIRCUIT_BREAKER_PAUSE_HOURS = float(os.environ.get("BOT_CIRCUIT_BREAKER_PAUSE_HOURS", "4"))
 HOURLY_UPDATE_MINUTES = int(os.environ.get("BOT_HOURLY_UPDATE_MINUTES", "60"))
 
+# فلتر الأخبار: لا إشارات قبل/بعد أخبار HIGH (CPI/NFP/FOMC...) — مأخوذ من XAU V26
+NEWS_FILTER = os.environ.get("BOT_NEWS_FILTER", "1") == "1"
+NEWS_FILTER_SYMBOLS = {s.strip().upper() for s in os.environ.get("BOT_NEWS_FILTER_SYMBOLS", "PAXGUSD").split(",") if s.strip()}
+NEWS_WINDOW_MINUTES = int(os.environ.get("BOT_NEWS_WINDOW_MINUTES", "30"))
+# فلتر الأطر الكبيرة (30m / 4h / 1d): يمنع صفقة عكس اتجاه أغلبية الأطر — مأخوذ من XAU V26
+HTF_FILTER = os.environ.get("BOT_HTF_FILTER", "1") == "1"
+NEWS_EVENTS = [
+    ("2026-10-02T08:30:00-04:00", "Employment Situation / NFP"),
+    ("2026-10-07T14:00:00-04:00", "FOMC Minutes"),
+    ("2026-10-14T08:30:00-04:00", "CPI"),
+    ("2026-10-15T08:30:00-04:00", "PPI"),
+    ("2026-10-28T14:00:00-04:00", "FOMC —   /"),
+    ("2026-10-29T08:30:00-04:00", "GDP Advance + Personal Income/Outlays"),
+    ("2026-11-06T08:30:00-05:00", "Employment Situation / NFP"),
+    ("2026-11-10T08:30:00-05:00", "CPI"),
+    ("2026-11-13T08:30:00-05:00", "PPI"),
+    ("2026-11-25T08:30:00-05:00", "Personal Income/Outlays — PCE"),
+    ("2026-12-04T08:30:00-05:00", "Employment Situation / NFP"),
+    ("2026-12-09T14:00:00-05:00", "FOMC —   /"),
+    ("2026-12-15T08:30:00-05:00", "PPI"),
+    ("2026-12-10T08:30:00-05:00", "CPI"),
+    ("2026-12-23T08:30:00-05:00", "Personal Income/Outlays — PCE"),
+]
+
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
 
 STATE_FILE = "state.json"
 KRAKEN_OHLC_URL = "https://api.kraken.com/0/public/OHLC"
 KRAKEN_TICKER_URL = "https://api.kraken.com/0/public/Ticker"
-KRAKEN_INTERVAL_MINUTES = {"1m": 1, "5m": 5, "15m": 15, "30m": 30, "1h": 60}
+KRAKEN_INTERVAL_MINUTES = {"1m": 1, "5m": 5, "15m": 15, "30m": 30, "1h": 60, "4h": 240, "1d": 1440}
 
 
 # ------------------------------------------------------------------
@@ -1048,6 +1072,50 @@ def minutes_since(iso_str):
     return (datetime.now(timezone.utc) - datetime.fromisoformat(iso_str)).total_seconds() / 60
 
 
+
+def news_blackout(now=None):
+    """يرجع اسم الخبر لو نحن داخل نافذة الخبر (قبل/بعد NEWS_WINDOW_MINUTES) وإلا None."""
+    now = now or datetime.now(timezone.utc)
+    for iso, name in NEWS_EVENTS:
+        try:
+            t = datetime.fromisoformat(iso)
+        except ValueError:
+            continue
+        if abs((now - t).total_seconds()) <= NEWS_WINDOW_MINUTES * 60:
+            return name
+    return None
+
+
+def htf_trend(symbol, interval):
+    """اتجاه إطار زمني: UP لو EMA20>EMA50 والسعر فوق EMA20، DOWN العكس، وإلا None."""
+    candles = get_klines(symbol, interval, limit=120)
+    closes = [c["close"] for c in candles[:-1]]  # شموع مغلقة فقط
+    if len(closes) < 55:
+        return None
+    e20, e50 = ema(closes, 20), ema(closes, 50)
+    if e20 > e50 and closes[-1] > e20:
+        return "UP"
+    if e20 < e50 and closes[-1] < e20:
+        return "DOWN"
+    return None
+
+
+def htf_blocks(symbol, decision):
+    """True لو غالبية الأطر الكبيرة تعاكس الصفقة. عند فشل الجلب لا نمنع."""
+    dirs = []
+    for tf in ("30m", "4h", "1d"):
+        try:
+            d = htf_trend(symbol, tf)
+        except Exception as e:
+            log(f"HTF {tf} failed: {e}")
+            continue
+        if d:
+            dirs.append(d)
+    up, down = dirs.count("UP"), dirs.count("DOWN")
+    log(f"HTF {symbol}: {dirs}")
+    return (decision == "BUY" and down >= 2) or (decision == "SELL" and up >= 2)
+
+
 def process_symbol(symbol, label, state):
     symbol_state = state.setdefault(symbol, {"label": label})
     symbol_state["label"] = label
@@ -1077,6 +1145,18 @@ def process_symbol(symbol, label, state):
     x = compute_engine(candles, px, symbol_state)
 
     now_iso = datetime.now(timezone.utc).isoformat()
+    if x["decision"] in ("BUY", "SELL") and x["plan"]:
+        blocked = None
+        if NEWS_FILTER and symbol.upper() in NEWS_FILTER_SYMBOLS:
+            nm = news_blackout()
+            if nm:
+                blocked = f"news: {nm}"
+        if not blocked and HTF_FILTER and htf_blocks(symbol, x["decision"]):
+            blocked = "higher timeframes disagree"
+        if blocked:
+            log(f"{label}: {x['decision']} blocked ({blocked})")
+            x["decision"] = "WAIT"
+            x["reason"] = f"signal blocked: {blocked}"
     if x["decision"] in ("BUY", "SELL") and x["plan"]:
         open_signal = symbol_state.get("open_signal")
         if open_signal and open_signal.get("direction") == x["decision"]:
