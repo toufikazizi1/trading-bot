@@ -12,7 +12,7 @@ S/R, MPE, VAB, ZLR...) تم حذفها بالكامل كيما طُلب.
   - إجهاد وفشل الاختراق (Exhaustion/Failed)      → bullExhaust/bearExhaust...
   - مناطق سيولة مؤسساتية (قمم/قيعان متقاربة)     → institutionalLiquidity()
   - خطة صفقة من مناطق سيولة حقيقية (لا نسب ثابتة) → marketPlan()
-  - آلة حالة Break → Retest → Confirm            → update_timing() (محفوظة
+  - آلة حالة PRE-TRIGGER → Confirm           → update_timing() (محفوظة
     بين كل تشغيلة عبر state.json بدل متغير JS في الذاكرة)
 
 ما تم إسقاطه عمداً (بصراحة، بلا تمويه):
@@ -44,7 +44,7 @@ LOOKBACK_BARS = int(os.environ.get("BOT_LOOKBACK_BARS", "80"))  # نفس n=80 ا
 WEEKEND_FILTER = os.environ.get("BOT_WEEKEND_FILTER", "1") == "1"
 # الرموز اللي تتبع عطلة سوق الفوركس التقليدي (الذهب فقط افتراضياً — البيتكوين والكريبتو عموماً يتداولو 24/7 بلا عطلة)
 WEEKEND_FILTER_SYMBOLS = {s.strip().upper() for s in os.environ.get("BOT_WEEKEND_FILTER_SYMBOLS", "PAXGUSD").split(",") if s.strip()}
-# دخول سريع: يدخل عند أول اختراق مؤكد (BREAK) بلا انتظار Retest كامل، بشرط
+# دخول سريع: يدخل عند أول اختراق مؤكد بلا انتظار Retest، بشرط
 # ضغط وتوقع قويين متفقين. أسرع، لكن خطر الدخول في اختراق وهمي أعلى قليلاً.
 FAST_ENTRY = os.environ.get("BOT_FAST_ENTRY", "1") == "1"
 MAX_CONSECUTIVE_LOSSES = int(os.environ.get("BOT_MAX_CONSECUTIVE_LOSSES", "3"))
@@ -660,7 +660,6 @@ def update_timing(timing, px, a, side, trigger, closed_break, confirm_evidence):
 
     band = max(0.35, a * 0.18)
     now = time.time()
-    max_retest_age = max(90, interval_seconds() * 4)
 
     if timing.get("side") != side or timing.get("trigger") is None or abs(timing["trigger"] - trigger) > a * 0.65:
         timing = {"side": side, "stage": "PRE-TRIGGER", "trigger": trigger, "band": band,
@@ -668,33 +667,21 @@ def update_timing(timing, px, a, side, trigger, closed_break, confirm_evidence):
     else:
         timing["band"] = band
 
+    if timing.get("stage") == "BREAK":  # حالة قديمة محفوظة في state.json
+        timing["stage"] = "PRE-TRIGGER"
     t = timing["trigger"]
-    if timing["stage"] == "BREAK" and timing.get("broken_at", 0) > 0 and now - timing["broken_at"] > max_retest_age:
-        timing["stage"] = "MISSED"
-
-    if side == "SELL":
-        if timing["stage"] == "BREAK" and px < t - max(a * 0.65, 1.2):
+    chase = max(a * 0.65, 1.2)
+    if timing["stage"] == "PRE-TRIGGER":
+        far = (px < t - chase) if side == "SELL" else (px > t + chase)
+        if far:
             timing["stage"] = "MISSED"
-        elif timing["stage"] == "PRE-TRIGGER" and closed_break:
-            timing["stage"] = "BREAK"
-            timing["broken_at"] = now
-        elif timing["stage"] == "BREAK" and confirm_evidence:
-            timing["stage"] = "CONFIRMED ENTRY"
-            timing["confirmed_at"] = now
-    else:  # BUY
-        if timing["stage"] == "BREAK" and px > t + max(a * 0.65, 1.2):
-            timing["stage"] = "MISSED"
-        elif timing["stage"] == "PRE-TRIGGER" and closed_break:
-            timing["stage"] = "BREAK"
-            timing["broken_at"] = now
-        elif timing["stage"] == "BREAK" and confirm_evidence:
+        elif confirm_evidence:
             timing["stage"] = "CONFIRMED ENTRY"
             timing["confirmed_at"] = now
 
     reasons = {
-        "PRE-TRIGGER": f"ننتظر إغلاق شمعة خارج {t:,.2f}.",
-        "BREAK": f"تم تجاوز {t:,.2f}؛ ننتظر تأكيد الاستمرار ولا نطارد السعر.",
-        "CONFIRMED ENTRY": f"تأكيد Break + استمرار. Trigger {t:,.2f}.",
+        "PRE-TRIGGER": f"ننتظر تأكيد الاستمرار خارج {t:,.2f}.",
+        "CONFIRMED ENTRY": f"تأكيد الاستمرار خارج {t:,.2f}.",
         "MISSED": "فات وقت الدخول — لا مطاردة.",
     }
     timing["reason"] = reasons.get(timing["stage"], "—")
@@ -924,25 +911,23 @@ def compute_engine(candles, px, symbol_state):
     elif failed_bear:
         reason = "كسر هابط فقد القبول؛ لا مطاردة."
     elif timing["stage"] == "CONFIRMED ENTRY" and timing["side"] == "BUY":
-        decision, reason = "BUY", f"تأكيد BUY: Break + استمرار. Trigger {timing['trigger']:,.2f}."
+        decision, reason = "BUY", f"تأكيد BUY: استمرار. Trigger {timing['trigger']:,.2f}."
     elif timing["stage"] == "CONFIRMED ENTRY" and timing["side"] == "SELL":
-        decision, reason = "SELL", f"تأكيد SELL: Break + استمرار. Trigger {timing['trigger']:,.2f}."
+        decision, reason = "SELL", f"تأكيد SELL: استمرار. Trigger {timing['trigger']:,.2f}."
     elif strong_bull_mom:
         decision, reason = "BUY", "BUY زخم صاعد: الاتجاه والبنية والتدفق والتنبؤ متوافقون — زخم وليس مطاردة."
     elif strong_bear_mom:
         decision, reason = "SELL", "SELL زخم هابط: الاتجاه والبنية والتدفق والتنبؤ متوافقون — زخم وليس مطاردة."
     elif timing["stage"] == "MISSED":
         reason = timing["reason"]
-    elif timing["stage"] == "BREAK":
-        reason = f"BREAK {timing_side}: تجاوز Trigger {timing['trigger']:,.2f}؛ ننتظر تأكيد الاستمرار."
     elif live_bull_shift or micro_bull:
-        decision, reason = "BUY WATCH", f"تحول صاعد؛ ننتظر Break ثم تأكيد قرب {timing_trigger:,.2f}." if timing_trigger else "تحول صاعد مبكر."
+        decision, reason = "BUY WATCH", f"تحول صاعد؛ ننتظر تأكيد قرب {timing_trigger:,.2f}." if timing_trigger else "تحول صاعد مبكر."
     elif live_bear_shift or micro_bear:
-        decision, reason = "SELL WATCH", f"تحول هابط؛ ننتظر Break ثم تأكيد قرب {timing_trigger:,.2f}." if timing_trigger else "تحول هابط مبكر."
+        decision, reason = "SELL WATCH", f"تحول هابط؛ ننتظر تأكيد قرب {timing_trigger:,.2f}." if timing_trigger else "تحول هابط مبكر."
     elif bull_break:
-        decision, reason = "BUY WATCH", "اختراق صاعد؛ ننتظر Break مؤكد."
+        decision, reason = "BUY WATCH", "اختراق صاعد؛ ننتظر تأكيد."
     elif bear_break:
-        decision, reason = "SELL WATCH", "كسر هابط؛ ننتظر Break مؤكد."
+        decision, reason = "SELL WATCH", "كسر هابط؛ ننتظر تأكيد."
     elif inside:
         reason = "السعر داخل منطقة القيمة؛ لا دخول من المنتصف."
 
@@ -1042,7 +1027,7 @@ def format_entry_signal(label, x):
         f"ATR: {x['atr']:.2f} | Order Flow: {x['flow']:+.1f} | البنية: {x['structure']}\n"
         f"مسار الحركة: {x['path_state']['state']} ({x['path_state']['confidence']}%)\n"
         f"السبب: {x['reason']}\n\n"
-        f"⚠️ إشارة تحليلية (Volume Profile + Order Flow + Break/Confirm)، "
+        f"⚠️ إشارة تحليلية (Volume Profile + Order Flow + Confirm)، "
         f"ليست ضمان نجاح ولا نصيحة مالية. التنفيذ يدوي بقرارك."
     )
 
