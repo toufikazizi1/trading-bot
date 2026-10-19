@@ -610,9 +610,19 @@ def market_plan(a, px, decision, liquidity):
     sl_base = sl_candidates[0] if sl_candidates else None
     sl = (sl_base["price"] - side * a * 0.18) if sl_base else (px - side * a * 0.90)
     sl = min(sl, px - a * 0.45) if side > 0 else max(sl, px + a * 0.45)
-
-    tps = [z["price"] for z in chosen[:3]]
+    # سقف الستوب: لا يتجاوز 1.2×ATR (كان يصل لـ4–5×ATR فيصير أكبر بكثير من الأهداف)
+    max_risk = a * 1.2
+    if abs(px - sl) > max_risk:
+        sl = px - side * max_risk
     risk = abs(px - sl) or 1e-9
+
+    # الأهداف: أقرب منطقة سيولة، لكن لا أقل من 1R / 1.5R / 2R، وبينها مسافة دنيا
+    tps = []
+    prev = 0.0
+    for z, mult in zip(chosen[:3], (1.0, 1.5, 2.0)):
+        dist = max(abs(z["price"] - px), risk * mult, prev + a * 0.30 if tps else 0.0)
+        tps.append(px + side * dist)
+        prev = dist
     return {
         "entry": px, "sl": sl,
         "tp1": tps[0] if len(tps) > 0 else None,
