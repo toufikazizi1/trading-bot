@@ -47,6 +47,13 @@ WEEKEND_FILTER_SYMBOLS = {s.strip().upper() for s in os.environ.get("BOT_WEEKEND
 # دخول سريع: يدخل عند أول اختراق مؤكد بلا انتظار Retest، بشرط
 # ضغط وتوقع قويين متفقين. أسرع، لكن خطر الدخول في اختراق وهمي أعلى قليلاً.
 FAST_ENTRY = os.environ.get("BOT_FAST_ENTRY", "1") == "1"
+# فلتر "فات القطار": لا إشارة إذا السعر تحرك أصلاً أكثر من X×ATR في اتجاهها خلال آخر N شموع
+LATE_MOVE_FILTER = os.environ.get("BOT_LATE_MOVE_FILTER", "1") == "1"
+LATE_MOVE_ATR = float(os.environ.get("BOT_LATE_MOVE_ATR", "3.0"))
+LATE_MOVE_BARS = int(os.environ.get("BOT_LATE_MOVE_BARS", "10"))
+# بيانات قديمة: لا إشارة إذا آخر شمعة أقدم من N شموع، أو السعر الحي ابتعد عن سعر الحساب أكثر من X×ATR
+STALE_DATA_BARS = float(os.environ.get("BOT_STALE_DATA_BARS", "3"))
+MAX_ENTRY_DRIFT_ATR = float(os.environ.get("BOT_MAX_ENTRY_DRIFT_ATR", "0.5"))
 MAX_CONSECUTIVE_LOSSES = int(os.environ.get("BOT_MAX_CONSECUTIVE_LOSSES", "3"))
 CIRCUIT_BREAKER_PAUSE_HOURS = float(os.environ.get("BOT_CIRCUIT_BREAKER_PAUSE_HOURS", "4"))
 HOURLY_UPDATE_MINUTES = int(os.environ.get("BOT_HOURLY_UPDATE_MINUTES", "60"))
@@ -1031,9 +1038,10 @@ def format_entry_signal(label, x):
         f"{icon} <b>XAU Engine V21 — {x['decision']}</b>\n"
         f"الرمز: {label}\n"
         f"التاريخ: {ts}\n\n"
-        f"نقطة الدخول: {plan['entry']:,.2f}\n"
+        f"نقطة الدخول (سعر لحظة الإرسال): {plan['entry']:,.2f}\n"
         f"SL: {plan['sl']:,.2f}\n"
         f"{tp_lines}\n"
+        f"عمر آخر شمعة: {x.get('data_age', 0):.0f}ث\n"
         f"ATR: {x['atr']:.2f} | Order Flow: {x['flow']:+.1f} | البنية: {x['structure']}\n"
         f"مسار الحركة: {x['path_state']['state']} ({x['path_state']['confidence']}%)\n"
         f"السبب: {x['reason']}\n\n"
@@ -1146,6 +1154,17 @@ def process_symbol(symbol, label, state):
             nm = news_blackout()
             if nm:
                 blocked = f"news: {nm}"
+        age = datetime.now(timezone.utc).timestamp() - candles[-1]["open_time"]
+        if age > interval_seconds() * STALE_DATA_BARS:
+            blocked = f"stale data ({age:.0f}s since last candle)"
+        if not blocked and LATE_MOVE_FILTER and x["atr"] > 0:
+            recent = candles[-LATE_MOVE_BARS:]
+            if x["decision"] == "SELL":
+                moved = max(z["high"] for z in recent) - px
+            else:
+                moved = px - min(z["low"] for z in recent)
+            if moved > x["atr"] * LATE_MOVE_ATR:
+                blocked = f"move already done ({moved / x['atr']:.1f} ATR in last {LATE_MOVE_BARS} bars)"
         if not blocked and HTF_FILTER and htf_blocks(symbol, x["decision"]):
             blocked = "higher timeframes disagree"
         if blocked:
@@ -1157,6 +1176,14 @@ def process_symbol(symbol, label, state):
         if open_signal and open_signal.get("direction") == x["decision"]:
             log(f"{label}: {x['decision']} signal already open - skip")
         else:
+            # سعر حي لحظة الإرسال: نعيد حساب الخطة عليه حتى تكون نقطة الدخول هي السعر الفعلي الآن
+            fresh = get_ticker_price(symbol)
+            if fresh:
+                if abs(fresh - px) > x["atr"] * MAX_ENTRY_DRIFT_ATR:
+                    log(f"{label}: {x['decision']} skipped, price moved {abs(fresh - px):.2f} before send")
+                    return
+                x["plan"] = market_plan(x["atr"], fresh, x["decision"], x["liquidity"]) or x["plan"]
+            x["data_age"] = datetime.now(timezone.utc).timestamp() - candles[-1]["open_time"]
             notify(format_entry_signal(label, x))
             symbol_state["open_signal"] = {
                 "direction": x["decision"], "entry": x["plan"]["entry"],
