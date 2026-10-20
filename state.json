@@ -5,11 +5,14 @@
     "open_signal": null,
     "consecutive_losses": 1,
     "timing": {
-      "side": null,
-      "stage": "IDLE",
-      "trigger": null,
-      "band": 0,
-      "reason": "\u0644\u0627 \u064a\u0648\u062c\u062f Trigger \u0635\u0627\u0644\u062d."
+      "side": "SELL",
+      "stage": "PRE-TRIGGER",
+      "trigger": 81412.7,
+      "band": 6.208714285714584,
+      "broken_at": 0,
+      "confirmed_at": 0,
+      "reason": "\u0646\u0646\u062a\u0638\u0631 \u062a\u0623\u0643\u064a\u062f \u0627\u0644\u0627\u0633\u062a\u0645\u0631\u0627\u0631 \u062e\u0627\u0631\u062c 81,412.70.",
+      "closed_break": false
     },
     "pause_until": null
   },
@@ -38,11 +41,14 @@
       }
     },
     "timing": {
-      "side": null,
-      "stage": "IDLE",
-      "trigger": null,
-      "band": 0,
-      "reason": "\u0644\u0627 \u064a\u0648\u062c\u062f Trigger \u0635\u0627\u0644\u062d."
+      "side": "SELL",
+      "stage": "MISSED",
+      "trigger": 4120.26,
+      "band": 0.35,
+      "broken_at": 0,
+      "confirmed_at": 0,
+      "reason": "\u0641\u0627\u062a \u0648\u0642\u062a \u0627\u0644\u062f\u062e\u0648\u0644 \u2014 \u0644\u0627 \u0645\u0637\u0627\u0631\u062f\u0629.",
+      "closed_break": false
     }
   }
 }
