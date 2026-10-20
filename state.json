@@ -1,7 +1,7 @@
 {
   "XBTUSD": {
     "label": "BTC/USDT",
-    "last_sent": "2026-10-20T14:01:17.852333+00:00",
+    "last_sent": "2026-10-20T15:05:11.153431+00:00",
     "open_signal": null,
     "consecutive_losses": 1,
     "timing": {
@@ -15,7 +15,7 @@
   },
   "PAXGUSD": {
     "label": "GOLD (PAXG)",
-    "last_sent": "2026-10-20T14:01:18.375996+00:00",
+    "last_sent": "2026-10-20T15:05:12.164444+00:00",
     "open_signal": null,
     "consecutive_losses": 2,
     "pause_until": null,
