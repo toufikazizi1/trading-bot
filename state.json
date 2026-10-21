@@ -1,24 +1,21 @@
 {
   "XBTUSD": {
     "label": "BTC/USDT",
-    "last_sent": "2026-10-21T07:05:12.533632+00:00",
+    "last_sent": "2026-10-21T08:05:12.656229+00:00",
     "open_signal": null,
     "consecutive_losses": 1,
     "timing": {
-      "side": "SELL",
-      "stage": "PRE-TRIGGER",
-      "trigger": 82618.78749999999,
-      "band": 7.0341428571427445,
-      "broken_at": 0,
-      "confirmed_at": 0,
-      "reason": "\u0646\u0646\u062a\u0638\u0631 \u062a\u0623\u0643\u064a\u062f \u0627\u0644\u0627\u0633\u062a\u0645\u0631\u0627\u0631 \u062e\u0627\u0631\u062c 82,618.79.",
-      "closed_break": false
+      "side": null,
+      "stage": "IDLE",
+      "trigger": null,
+      "band": 0,
+      "reason": "\u0644\u0627 \u064a\u0648\u062c\u062f Trigger \u0635\u0627\u0644\u062d."
     },
     "pause_until": null
   },
   "PAXGUSD": {
     "label": "GOLD (PAXG)",
-    "last_sent": "2026-10-21T07:05:13.124641+00:00",
+    "last_sent": "2026-10-21T08:05:13.460282+00:00",
     "open_signal": null,
     "consecutive_losses": 2,
     "pause_until": null,
