@@ -1,21 +1,24 @@
 {
   "XBTUSD": {
     "label": "BTC/USDT",
-    "last_sent": "2026-10-21T21:40:09.849880+00:00",
+    "last_sent": "2026-10-21T22:40:12.679311+00:00",
     "open_signal": null,
     "consecutive_losses": 1,
     "timing": {
-      "side": null,
-      "stage": "IDLE",
-      "trigger": null,
-      "band": 0,
-      "reason": "\u0644\u0627 \u064a\u0648\u062c\u062f Trigger \u0635\u0627\u0644\u062d."
+      "side": "SELL",
+      "stage": "PRE-TRIGGER",
+      "trigger": 84230.2975,
+      "band": 3.9150000000001874,
+      "broken_at": 0,
+      "confirmed_at": 0,
+      "reason": "\u0646\u0646\u062a\u0638\u0631 \u062a\u0623\u0643\u064a\u062f \u0627\u0644\u0627\u0633\u062a\u0645\u0631\u0627\u0631 \u062e\u0627\u0631\u062c 84,230.30.",
+      "closed_break": false
     },
     "pause_until": null
   },
   "PAXGUSD": {
     "label": "GOLD (PAXG)",
-    "last_sent": "2026-10-21T21:35:11.005491+00:00",
+    "last_sent": "2026-10-21T22:40:13.315382+00:00",
     "open_signal": null,
     "consecutive_losses": 2,
     "pause_until": null,
@@ -38,14 +41,11 @@
       }
     },
     "timing": {
-      "side": "SELL",
-      "stage": "PRE-TRIGGER",
-      "trigger": 4112.217,
-      "band": 0.35,
-      "broken_at": 0,
-      "confirmed_at": 0,
-      "reason": "\u0646\u0646\u062a\u0638\u0631 \u062a\u0623\u0643\u064a\u062f \u0627\u0644\u0627\u0633\u062a\u0645\u0631\u0627\u0631 \u062e\u0627\u0631\u062c 4,112.22.",
-      "closed_break": false
+      "side": null,
+      "stage": "IDLE",
+      "trigger": null,
+      "band": 0,
+      "reason": "\u0644\u0627 \u064a\u0648\u062c\u062f Trigger \u0635\u0627\u0644\u062d."
     }
   }
 }
