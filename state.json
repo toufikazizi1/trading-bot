@@ -1,24 +1,24 @@
 {
   "XBTUSD": {
     "label": "BTC/USDT",
-    "last_sent": "2026-10-21T20:35:09.003259+00:00",
+    "last_sent": "2026-10-21T21:35:10.191692+00:00",
     "open_signal": null,
     "consecutive_losses": 0,
     "timing": {
-      "side": "SELL",
-      "stage": "PRE-TRIGGER",
-      "trigger": 84299.9675,
-      "band": 3.808285714285864,
+      "side": "BUY",
+      "stage": "CONFIRMED ENTRY",
+      "trigger": 84753.0,
+      "band": 2.9172857142858266,
       "broken_at": 0,
-      "confirmed_at": 0,
-      "reason": "\u0646\u0646\u062a\u0638\u0631 \u062a\u0623\u0643\u064a\u062f \u0627\u0644\u0627\u0633\u062a\u0645\u0631\u0627\u0631 \u062e\u0627\u0631\u062c 84,299.97.",
-      "closed_break": false
+      "confirmed_at": 1792618510.1912267,
+      "reason": "\u062a\u0623\u0643\u064a\u062f \u0627\u0644\u0627\u0633\u062a\u0645\u0631\u0627\u0631 \u062e\u0627\u0631\u062c 84,753.00.",
+      "closed_break": true
     },
     "pause_until": null
   },
   "PAXGUSD": {
     "label": "GOLD (PAXG)",
-    "last_sent": "2026-10-21T20:34:21.896822+00:00",
+    "last_sent": "2026-10-21T21:35:11.005491+00:00",
     "open_signal": null,
     "consecutive_losses": 2,
     "pause_until": null,
