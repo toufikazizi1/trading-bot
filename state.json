@@ -43,7 +43,7 @@
     "timing": {
       "side": "SELL",
       "stage": "MISSED",
-      "trigger": 4029.0745,
+      "trigger": 4028.922,
       "band": 0.35,
       "broken_at": 0,
       "confirmed_at": 0,
