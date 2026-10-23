@@ -1,11 +1,12 @@
 name: Trading Bot
 on:
   schedule:
-    - cron: "* * * * *"
+    - cron: "*/5 * * * *"
   workflow_dispatch: {}
 
 permissions:
   contents: write
+  actions: write
 
 concurrency:
   group: trading-bot
@@ -14,6 +15,7 @@ concurrency:
 jobs:
   run-bot:
     runs-on: ubuntu-latest
+    timeout-minutes: 355
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -34,17 +36,34 @@ jobs:
           BOT_CIRCUIT_BREAKER_PAUSE_HOURS: "4"
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: python bot_action.py
-      - name: Save bot state
         run: |
+          # حلقة داخل نفس التشغيل: فحص كل دقيقة لمدة ~5س40د بدل الاعتماد على cron
+          # (GitHub يبطّئ cron لاحقاً إلى مرة كل ~3 ساعات)
           git config user.name "trading-bot"
           git config user.email "bot@users.noreply.github.com"
-          git add state.json
-          git diff --staged --quiet && exit 0
-          git commit -m "Update bot state [skip ci]"
-          for i in 1 2 3; do
-            git pull --rebase -X theirs origin main && git push && exit 0
-            git rebase --abort || true
-            sleep 3
+          save_state() {
+            git add state.json
+            git diff --staged --quiet && return 0
+            git commit -q -m "Update bot state [skip ci]"
+            for i in 1 2 3; do
+              git pull -q --rebase -X theirs origin main && git push -q && return 0
+              git rebase --abort || true
+              sleep 3
+            done
+            return 0
+          }
+          END=$((SECONDS + 20400))
+          LAST=$SECONDS
+          while [ $SECONDS -lt $END ]; do
+            T0=$SECONDS
+            python bot_action.py || true
+            if [ $((SECONDS - LAST)) -ge 300 ]; then save_state; LAST=$SECONDS; fi
+            D=$((60 - (SECONDS - T0)))
+            [ $D -gt 0 ] && sleep $D
           done
-          exit 1
+          save_state
+      - name: Start next run
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run bot.yml --ref main || true
