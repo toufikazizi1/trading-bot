@@ -444,12 +444,12 @@ h1{font-size:20px;margin:0 0 12px}.g{display:grid;grid-template-columns:repeat(a
 table{width:100%;border-collapse:collapse;font-size:13px}td,th{padding:6px 8px;border-bottom:1px solid #2a343e;text-align:right;white-space:nowrap}
 .tag{display:inline-block;padding:2px 8px;border-radius:6px;background:#2a343e}</style>
 <h1>🥇 XAU Live Paper Bot <span class="tag">تجريبي — بدون مال حقيقي</span></h1>
-<div class="g" id="top"></div><div class="w" id="pos"></div><div class="w" id="dec"></div>
-<div class="w"><b>آخر الصفقات</b><table id="tr"></table></div>
+<div class="g" id="topbar"></div><div class="w" id="posbox"></div><div class="w" id="decbox"></div>
+<div class="w"><b>آخر الصفقات</b><table id="trtbl"></table></div>
 <script>
 const f=(v,d=2)=>v==null?'—':Number(v).toFixed(d), cl=v=>v>0?'up':v<0?'dn':'';
 async function R(){try{const s=await (await fetch('/api/state')).json(),v=s.view;
-top.innerHTML=`
+document.getElementById('topbar').innerHTML=`
 <div class=c><small>الحالة</small><b>${v.status}</b></div>
 <div class=c><small>Bid / Ask</small><b>${f(v.bid)} / ${f(v.ask)}</b></div>
 <div class=c><small>الرصيد</small><b>${f(s.balance)}$</b></div>
@@ -458,10 +458,10 @@ top.innerHTML=`
 <div class=c><small>صفقات / نجاح</small><b>${s.n} / ${f(s.win_rate,1)}%</b></div>
 <div class=c><small>PF</small><b>${s.pf==null?'—':s.pf}</b></div>
 <div class=c><small>أكبر تراجع</small><b>${f(s.max_dd,1)}%</b></div>`;
-const p=s.position;pos.innerHTML=p?`<b>صفقة مفتوحة:</b> ${p.side} ${f(p.vol)} لوت @ ${f(p.entry)} | SL ${f(p.sl)} | TP ${p.tps.map(x=>f(x)).join(' / ')} | تحقق TP: ${p.tp_hit}
+const p=s.position;document.getElementById('posbox').innerHTML=p?`<b>صفقة مفتوحة:</b> ${p.side} ${f(p.vol)} لوت @ ${f(p.entry)} | SL ${f(p.sl)} | TP ${p.tps.map(x=>f(x)).join(' / ')} | تحقق TP: ${p.tp_hit}
  | عائم <b class="${cl(s.unreal)}">${f(s.unreal)}$</b> | محقق ${f(p.realized)}$`:'<b>لا توجد صفقة مفتوحة</b>';
-dec.innerHTML=`<b>المحرك:</b> ${v.decision} — مرحلة ${v.stage} — ATR ${f(v.atr)} — Flow ${f(v.flow,1)}<br>${v.reason}`+(v.blocked?`<br>⛔ محجوب: ${v.blocked}`:'');
-tr.innerHTML='<tr><th>فتح</th><th>نوع</th><th>لوت</th><th>دخول</th><th>خروج</th><th>ربح $</th></tr>'+s.trades.map(t=>`<tr><td>${t.opened}</td><td>${t.side}</td><td>${t.lots}</td><td>${t.entry}</td><td>${t.exits}</td><td class="${cl(t.pnl)}">${t.pnl}</td></tr>`).join('');
+document.getElementById('decbox').innerHTML=`<b>المحرك:</b> ${v.decision} — مرحلة ${v.stage} — ATR ${f(v.atr)} — Flow ${f(v.flow,1)}<br>${v.reason}`+(v.blocked?`<br>⛔ محجوب: ${v.blocked}`:'');
+document.getElementById('trtbl').innerHTML='<tr><th>فتح</th><th>نوع</th><th>لوت</th><th>دخول</th><th>خروج</th><th>ربح $</th></tr>'+s.trades.map(t=>`<tr><td>${t.opened}</td><td>${t.side}</td><td>${t.lots}</td><td>${t.entry}</td><td>${t.exits}</td><td class="${cl(t.pnl)}">${t.pnl}</td></tr>`).join('');
 }catch(e){}}R();setInterval(R,2000);
 </script></html>"""
 
