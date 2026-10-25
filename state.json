@@ -7,8 +7,8 @@
     "timing": {
       "side": "SELL",
       "stage": "MISSED",
-      "trigger": 80333.1,
-      "band": 3.607714285713986,
+      "trigger": 80351.72,
+      "band": 3.9432857142856768,
       "broken_at": 0,
       "confirmed_at": 0,
       "reason": "\u0641\u0627\u062a \u0648\u0642\u062a \u0627\u0644\u062f\u062e\u0648\u0644 \u2014 \u0644\u0627 \u0645\u0637\u0627\u0631\u062f\u0629.",
