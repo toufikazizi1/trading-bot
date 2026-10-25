@@ -55,6 +55,8 @@ CFG = {
     "spread_fallback": 0.30,
     "htf_cache": 60.0,          # تخزين مؤقت لشموع الأطر الكبيرة
     "port": 8080,
+    "mt5_signals": False,       # True = يكتب الإشارة لملف يقرأه EA في MT5 (شغّل بـ --mt5)
+    "mt5_file": "xau_signal.txt",
 }
 
 
@@ -216,6 +218,28 @@ class ReplayFeed:
         return res[-limit:]
 
 
+def mt5_common_files():
+    base = os.environ.get("APPDATA") or HERE
+    return os.path.join(base, "MetaQuotes", "Terminal", "Common", "Files")
+
+
+def write_mt5_signal(side, entry, sl, tps, now):
+    """يكتب إشارة لملف يقرأه EA في MT5 (مجلد Common\\Files). الـEA هو اللي ينفذ."""
+    try:
+        d = mt5_common_files()
+        os.makedirs(d, exist_ok=True)
+        path = os.path.join(d, CFG["mt5_file"])
+        body = (f"id={int(now * 1000)}\nside={side}\nentry={entry:.2f}\nsl={sl:.2f}\n"
+                f"tp1={tps[0]:.2f}\ntp2={tps[1]:.2f}\ntp3={tps[2]:.2f}\ncreated={int(now)}\n")
+        tmp = path + ".tmp"
+        with open(tmp, "w", encoding="ascii") as f:
+            f.write(body)
+        os.replace(tmp, path)
+        log(f"→ أُرسلت الإشارة لـMT5: {path}")
+    except Exception as e:
+        log(f"تعذر كتابة إشارة MT5: {e}")
+
+
 # ----------------------------- البوت -----------------------------
 def fresh_state():
     return {"balance": CFG["start_equity"], "peak": CFG["start_equity"], "max_dd": 0.0,
@@ -293,6 +317,8 @@ class Bot:
             "reason": x["reason"],
         }
         log(f"▶ فتح {decision} {lots:.2f} لوت @ {entry:.2f} | SL {sl:.2f} | TP {tps[0]:.2f}/{tps[1]:.2f}/{tps[2]:.2f}")
+        if CFG["mt5_signals"]:
+            write_mt5_signal(decision, plan["entry"], sl, tps, now)
         self.save()
 
     def close_part(self, vol, price, label):
@@ -496,8 +522,10 @@ def main():
     ap.add_argument("--tf", default=None, help="إطار الشموع (افتراضي 1m)")
     ap.add_argument("--reset", action="store_true", help="مسح الحالة والبدء من رصيد جديد")
     ap.add_argument("--port", type=int, default=CFG["port"])
+    ap.add_argument("--mt5", action="store_true", help="يكتب الإشارات لـEA في MT5 لينفذها")
     a = ap.parse_args()
     CFG["port"] = a.port
+    CFG["mt5_signals"] = a.mt5 and not a.replay
     if a.tf:
         CFG["tf"] = a.tf
     eng.INTERVAL = CFG["tf"]          # المحرك يحسب أعمار الشموع حسب هذا الإطار
@@ -528,7 +556,9 @@ def main():
     eng.get_ticker_price = lambda pair: feed.tick()["mid"]
     bot = Bot(feed)
     serve(bot)
-    log("بدأ البوت التجريبي (Paper). اضغط Ctrl+C للإيقاف.")
+    if CFG["mt5_signals"]:
+        log(f"وضع MT5 مفعّل: الإشارات تُكتب في {os.path.join(mt5_common_files(), CFG['mt5_file'])}")
+    log("بدأ البوت. اضغط Ctrl+C للإيقاف.")
     fails = 0
     try:
         while True:
