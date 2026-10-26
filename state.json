@@ -8,7 +8,7 @@
       "side": "BUY",
       "stage": "PRE-TRIGGER",
       "trigger": 80601.7175,
-      "band": 7.545857142857255,
+      "band": 7.896857142857479,
       "broken_at": 0,
       "confirmed_at": 0,
       "reason": "\u0646\u0646\u062a\u0638\u0631 \u062a\u0623\u0643\u064a\u062f \u0627\u0644\u0627\u0633\u062a\u0645\u0631\u0627\u0631 \u062e\u0627\u0631\u062c 80,601.72.",
@@ -18,10 +18,10 @@
   },
   "PAXGUSD": {
     "label": "GOLD (PAXG)",
-    "last_sent": "2026-10-26T13:56:57.925108+00:00",
+    "last_sent": "2026-10-26T17:58:58.730232+00:00",
     "open_signal": null,
     "consecutive_losses": 0,
-    "pause_until": "2026-10-26T17:58:58.302780+00:00",
+    "pause_until": null,
     "source_stats": {
       "breakout": {
         "wins": 0,
