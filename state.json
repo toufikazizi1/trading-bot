@@ -18,7 +18,7 @@
   },
   "PAXGUSD": {
     "label": "GOLD (PAXG)",
-    "last_sent": "2026-10-26T04:40:33.744262+00:00",
+    "last_sent": "2026-10-26T05:40:34.014361+00:00",
     "open_signal": null,
     "consecutive_losses": 1,
     "pause_until": null,
