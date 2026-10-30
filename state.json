@@ -8,7 +8,7 @@
       "side": "SELL",
       "stage": "MISSED",
       "trigger": 77149.22,
-      "band": 18.552857142857142,
+      "band": 25.46742857142861,
       "broken_at": 0,
       "confirmed_at": 0,
       "reason": "\u0641\u0627\u062a \u0648\u0642\u062a \u0627\u0644\u062f\u062e\u0648\u0644 \u2014 \u0644\u0627 \u0645\u0637\u0627\u0631\u062f\u0629.",
@@ -18,8 +18,14 @@
   },
   "PAXGUSD": {
     "label": "GOLD (PAXG)",
-    "last_sent": "2026-10-30T13:02:56.551195+00:00",
-    "open_signal": null,
+    "last_sent": "2026-10-30T13:42:56.840925+00:00",
+    "open_signal": {
+      "direction": "SELL",
+      "entry": 3934.34,
+      "sl": 3937.8122857142857,
+      "tp1": 3930.8677142857146,
+      "opened_at": "2026-10-30T13:42:56.840925+00:00"
+    },
     "consecutive_losses": 0,
     "pause_until": null,
     "source_stats": {
@@ -42,12 +48,12 @@
     },
     "timing": {
       "side": "SELL",
-      "stage": "MISSED",
-      "trigger": 3934.04,
-      "band": 0.4699285714285621,
+      "stage": "PRE-TRIGGER",
+      "trigger": 3934.33,
+      "band": 0.5208428571428599,
       "broken_at": 0,
       "confirmed_at": 0,
-      "reason": "\u0641\u0627\u062a \u0648\u0642\u062a \u0627\u0644\u062f\u062e\u0648\u0644 \u2014 \u0644\u0627 \u0645\u0637\u0627\u0631\u062f\u0629.",
+      "reason": "\u0646\u0646\u062a\u0638\u0631 \u062a\u0623\u0643\u064a\u062f \u0627\u0644\u0627\u0633\u062a\u0645\u0631\u0627\u0631 \u062e\u0627\u0631\u062c 3,934.33.",
       "closed_break": false
     }
   }
