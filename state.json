@@ -1,8 +1,14 @@
 {
   "XBTUSD": {
     "label": "BTC/USDT",
-    "last_sent": "2026-10-30T18:13:09.443706+00:00",
-    "open_signal": null,
+    "last_sent": "2026-10-30T18:44:09.676471+00:00",
+    "open_signal": {
+      "direction": "SELL",
+      "entry": 76596.2,
+      "sl": 76656.24285714286,
+      "tp1": 76536.15714285713,
+      "opened_at": "2026-10-30T18:44:09.676471+00:00"
+    },
     "consecutive_losses": 0,
     "timing": {
       "side": null,
@@ -15,7 +21,7 @@
   },
   "PAXGUSD": {
     "label": "GOLD (PAXG)",
-    "last_sent": "2026-10-30T17:45:10.178186+00:00",
+    "last_sent": "2026-10-30T18:45:10.291902+00:00",
     "open_signal": null,
     "consecutive_losses": 0,
     "pause_until": null,
