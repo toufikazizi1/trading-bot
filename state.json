@@ -11,14 +11,11 @@
     },
     "consecutive_losses": 0,
     "timing": {
-      "side": "BUY",
-      "stage": "CONFIRMED ENTRY",
-      "trigger": 78228.0,
-      "band": 5.402571428571765,
-      "broken_at": 0,
-      "confirmed_at": 1793577131.4614878,
-      "reason": "\u062a\u0623\u0643\u064a\u062f \u0627\u0644\u0627\u0633\u062a\u0645\u0631\u0627\u0631 \u062e\u0627\u0631\u062c 78,228.00.",
-      "closed_break": true
+      "side": null,
+      "stage": "IDLE",
+      "trigger": null,
+      "band": 0,
+      "reason": "\u0644\u0627 \u064a\u0648\u062c\u062f Trigger \u0635\u0627\u0644\u062d."
     },
     "pause_until": null
   },
@@ -47,14 +44,11 @@
       }
     },
     "timing": {
-      "side": "BUY",
-      "stage": "MISSED",
-      "trigger": 3905.2419999999997,
-      "band": 0.35,
-      "broken_at": 0,
-      "confirmed_at": 0,
-      "reason": "\u0641\u0627\u062a \u0648\u0642\u062a \u0627\u0644\u062f\u062e\u0648\u0644 \u2014 \u0644\u0627 \u0645\u0637\u0627\u0631\u062f\u0629.",
-      "closed_break": true
+      "side": null,
+      "stage": "IDLE",
+      "trigger": null,
+      "band": 0,
+      "reason": "\u0644\u0627 \u064a\u0648\u062c\u062f Trigger \u0635\u0627\u0644\u062d."
     }
   }
 }
