@@ -1,25 +1,37 @@
 {
   "XBTUSD": {
     "label": "BTC/USDT",
-    "last_sent": "2026-11-03T04:45:29.588959+00:00",
-    "open_signal": null,
+    "last_sent": "2026-11-03T05:39:29.974700+00:00",
+    "open_signal": {
+      "direction": "SELL",
+      "entry": 76525.2,
+      "sl": 76562.06571428571,
+      "tp1": 76488.33428571429,
+      "opened_at": "2026-11-03T05:39:29.974700+00:00"
+    },
     "consecutive_losses": 0,
     "timing": {
-      "side": "SELL",
-      "stage": "CONFIRMED ENTRY",
-      "trigger": 76520.95,
-      "band": 4.330285714285751,
+      "side": "BUY",
+      "stage": "PRE-TRIGGER",
+      "trigger": 77042.12000000001,
+      "band": 5.529857142857217,
       "broken_at": 0,
-      "confirmed_at": 1793683949.3321168,
-      "reason": "\u062a\u0623\u0643\u064a\u062f \u0627\u0644\u0627\u0633\u062a\u0645\u0631\u0627\u0631 \u062e\u0627\u0631\u062c 76,520.95.",
-      "closed_break": true
+      "confirmed_at": 0,
+      "reason": "\u0646\u0646\u062a\u0638\u0631 \u062a\u0623\u0643\u064a\u062f \u0627\u0644\u0627\u0633\u062a\u0645\u0631\u0627\u0631 \u062e\u0627\u0631\u062c 77,042.12.",
+      "closed_break": false
     },
     "pause_until": null
   },
   "PAXGUSD": {
     "label": "GOLD (PAXG)",
-    "last_sent": "2026-11-03T04:52:30.555319+00:00",
-    "open_signal": null,
+    "last_sent": "2026-11-03T05:37:29.945120+00:00",
+    "open_signal": {
+      "direction": "SELL",
+      "entry": 3921.1,
+      "sl": 3922.210607489886,
+      "tp1": 3919.9893925101137,
+      "opened_at": "2026-11-03T05:37:29.945120+00:00"
+    },
     "consecutive_losses": 0,
     "pause_until": null,
     "source_stats": {
@@ -42,13 +54,13 @@
     },
     "timing": {
       "side": "SELL",
-      "stage": "CONFIRMED ENTRY",
-      "trigger": 3921.0,
+      "stage": "PRE-TRIGGER",
+      "trigger": 3921.1,
       "band": 0.35,
       "broken_at": 0,
-      "confirmed_at": 1793684070.142175,
-      "reason": "\u062a\u0623\u0643\u064a\u062f \u0627\u0644\u0627\u0633\u062a\u0645\u0631\u0627\u0631 \u062e\u0627\u0631\u062c 3,921.00.",
-      "closed_break": true
+      "confirmed_at": 0,
+      "reason": "\u0646\u0646\u062a\u0638\u0631 \u062a\u0623\u0643\u064a\u062f \u0627\u0644\u0627\u0633\u062a\u0645\u0631\u0627\u0631 \u062e\u0627\u0631\u062c 3,921.10.",
+      "closed_break": false
     }
   }
 }
