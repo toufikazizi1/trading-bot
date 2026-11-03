@@ -7,19 +7,25 @@
     "timing": {
       "side": "BUY",
       "stage": "PRE-TRIGGER",
-      "trigger": 76731.775,
-      "band": 4.618285714285302,
+      "trigger": 76737.28,
+      "band": 4.044857142856843,
       "broken_at": 0,
       "confirmed_at": 0,
-      "reason": "\u0646\u0646\u062a\u0638\u0631 \u062a\u0623\u0643\u064a\u062f \u0627\u0644\u0627\u0633\u062a\u0645\u0631\u0627\u0631 \u062e\u0627\u0631\u062c 76,731.77.",
+      "reason": "\u0646\u0646\u062a\u0638\u0631 \u062a\u0623\u0643\u064a\u062f \u0627\u0644\u0627\u0633\u062a\u0645\u0631\u0627\u0631 \u062e\u0627\u0631\u062c 76,737.28.",
       "closed_break": false
     },
     "pause_until": null
   },
   "PAXGUSD": {
     "label": "GOLD (PAXG)",
-    "last_sent": "2026-11-03T08:16:32.401583+00:00",
-    "open_signal": null,
+    "last_sent": "2026-11-03T08:59:45.217740+00:00",
+    "open_signal": {
+      "direction": "SELL",
+      "entry": 3899.16,
+      "sl": 3900.2417142857144,
+      "tp1": 3897.46,
+      "opened_at": "2026-11-03T08:59:45.217740+00:00"
+    },
     "consecutive_losses": 2,
     "pause_until": null,
     "source_stats": {
