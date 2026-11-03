@@ -2,22 +2,16 @@
   "XBTUSD": {
     "label": "BTC/USDT",
     "last_sent": "2026-11-03T05:39:29.974700+00:00",
-    "open_signal": {
-      "direction": "SELL",
-      "entry": 76525.2,
-      "sl": 76562.06571428571,
-      "tp1": 76488.33428571429,
-      "opened_at": "2026-11-03T05:39:29.974700+00:00"
-    },
-    "consecutive_losses": 0,
+    "open_signal": null,
+    "consecutive_losses": 1,
     "timing": {
-      "side": "BUY",
+      "side": "SELL",
       "stage": "PRE-TRIGGER",
-      "trigger": 77042.12000000001,
-      "band": 5.529857142857217,
+      "trigger": 76537.0,
+      "band": 5.806285714285975,
       "broken_at": 0,
       "confirmed_at": 0,
-      "reason": "\u0646\u0646\u062a\u0638\u0631 \u062a\u0623\u0643\u064a\u062f \u0627\u0644\u0627\u0633\u062a\u0645\u0631\u0627\u0631 \u062e\u0627\u0631\u062c 77,042.12.",
+      "reason": "\u0646\u0646\u062a\u0638\u0631 \u062a\u0623\u0643\u064a\u062f \u0627\u0644\u0627\u0633\u062a\u0645\u0631\u0627\u0631 \u062e\u0627\u0631\u062c 76,537.00.",
       "closed_break": false
     },
     "pause_until": null
@@ -25,14 +19,8 @@
   "PAXGUSD": {
     "label": "GOLD (PAXG)",
     "last_sent": "2026-11-03T05:37:29.945120+00:00",
-    "open_signal": {
-      "direction": "SELL",
-      "entry": 3921.1,
-      "sl": 3922.210607489886,
-      "tp1": 3919.9893925101137,
-      "opened_at": "2026-11-03T05:37:29.945120+00:00"
-    },
-    "consecutive_losses": 0,
+    "open_signal": null,
+    "consecutive_losses": 1,
     "pause_until": null,
     "source_stats": {
       "breakout": {
@@ -53,14 +41,11 @@
       }
     },
     "timing": {
-      "side": "SELL",
-      "stage": "PRE-TRIGGER",
-      "trigger": 3921.1,
-      "band": 0.35,
-      "broken_at": 0,
-      "confirmed_at": 0,
-      "reason": "\u0646\u0646\u062a\u0638\u0631 \u062a\u0623\u0643\u064a\u062f \u0627\u0644\u0627\u0633\u062a\u0645\u0631\u0627\u0631 \u062e\u0627\u0631\u062c 3,921.10.",
-      "closed_break": false
+      "side": null,
+      "stage": "IDLE",
+      "trigger": null,
+      "band": 0,
+      "reason": "\u0644\u0627 \u064a\u0648\u062c\u062f Trigger \u0635\u0627\u0644\u062d."
     }
   }
 }
