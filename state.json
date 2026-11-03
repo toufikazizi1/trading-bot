@@ -6,13 +6,13 @@
     "consecutive_losses": 1,
     "timing": {
       "side": "SELL",
-      "stage": "PRE-TRIGGER",
-      "trigger": 76533.92,
-      "band": 4.494857142856656,
+      "stage": "MISSED",
+      "trigger": 76530.38,
+      "band": 4.708285714285302,
       "broken_at": 0,
       "confirmed_at": 0,
-      "reason": "\u0646\u0646\u062a\u0638\u0631 \u062a\u0623\u0643\u064a\u062f \u0627\u0644\u0627\u0633\u062a\u0645\u0631\u0627\u0631 \u062e\u0627\u0631\u062c 76,533.92.",
-      "closed_break": false
+      "reason": "\u0641\u0627\u062a \u0648\u0642\u062a \u0627\u0644\u062f\u062e\u0648\u0644 \u2014 \u0644\u0627 \u0645\u0637\u0627\u0631\u062f\u0629.",
+      "closed_break": true
     },
     "pause_until": null
   },
@@ -42,12 +42,12 @@
     },
     "timing": {
       "side": "SELL",
-      "stage": "CONFIRMED ENTRY",
-      "trigger": 3920.01,
+      "stage": "MISSED",
+      "trigger": 3921.647,
       "band": 0.35,
       "broken_at": 0,
-      "confirmed_at": 1793685452.4279444,
-      "reason": "\u062a\u0623\u0643\u064a\u062f \u0627\u0644\u0627\u0633\u062a\u0645\u0631\u0627\u0631 \u062e\u0627\u0631\u062c 3,920.01.",
+      "confirmed_at": 0,
+      "reason": "\u0641\u0627\u062a \u0648\u0642\u062a \u0627\u0644\u062f\u062e\u0648\u0644 \u2014 \u0644\u0627 \u0645\u0637\u0627\u0631\u062f\u0629.",
       "closed_break": true
     }
   }
