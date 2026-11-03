@@ -1,0 +1,2112 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>XAU Engine V26 OB</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#070b14">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+:root{--bg:#070b14;--card:#101827;--card2:#0c1422;--line:#23304a;--txt:#eef3ff;--muted:#8e9bb4;--green:#35df86;--red:#ff5f78;--yellow:#ffc857;--blue:#62a0ff}
+*{box-sizing:border-box}body{margin:0;background:linear-gradient(180deg,#060a12,#0a1020);color:var(--txt);font-family:system-ui,-apple-system,Segoe UI,Arial,sans-serif}
+.wrap{max-width:760px;margin:auto;padding:14px}.head{text-align:center;padding:10px 4px 16px}.head h1{margin:0;font-size:24px}.head p{margin:5px 0;color:var(--muted);font-size:14px}.status{font-size:12px;color:var(--green)}
+.card{background:rgba(16,24,39,.96);border:1px solid var(--line);border-radius:20px;padding:15px;margin:12px 0;box-shadow:0 10px 30px #0003}
+.controls{display:grid;grid-template-columns:1fr 1fr 1.2fr;gap:9px}.controls button,.controls select{width:100%;background:#0c1422;color:var(--txt);border:1px solid #2a3956;border-radius:12px;padding:12px;font-size:14px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}.metric{background:#0b1322;border:1px solid #202d45;border-radius:15px;padding:13px;text-align:center}.label{color:var(--muted);font-size:13px}.value{font-size:21px;font-weight:800;margin-top:5px}.green{color:var(--green)}.red{color:var(--red)}.yellow{color:var(--yellow)}.blue{color:var(--blue)}
+.big{font-size:32px;font-weight:900;letter-spacing:.5px}.decision{text-align:center;border-radius:18px;padding:20px;border:1px solid #6d5a19;background:#261f0a}.decision.buy{border-color:#1b8c58;background:#082418}.decision.sell{border-color:#a33a4c;background:#280d15}.decision.watch{border-color:#8b7220;background:#211b0a}
+table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:9px 6px;border-bottom:1px solid #1d2940;text-align:center}th{color:var(--muted);font-weight:600}
+.bar{height:10px;background:#1a2538;border-radius:20px;overflow:hidden;margin-top:7px}.bar i{display:block;height:100%}
+canvas{width:100%;height:260px;background:#080e19;border-radius:14px;border:1px solid #1c2940}
+.note{color:var(--muted);font-size:12px;line-height:1.7}.tag{display:inline-block;padding:4px 9px;border-radius:999px;background:#16233a;color:#b9c8e5;font-size:11px;margin:2px}
+.plan{display:grid;grid-template-columns:1fr 1fr;gap:9px}.plan .metric{min-height:82px}.empty{text-align:center;color:var(--muted);padding:10px}.alert{border:2px solid var(--yellow);background:#241d08;border-radius:18px;padding:16px;margin:12px 0;text-align:center}.alert.buy{border-color:var(--green);background:#082418}.alert.sell{border-color:var(--red);background:#280d15}.alert .sig{font-size:30px;font-weight:900}.alert .levels{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-top:12px}.alert .levels .metric{padding:8px}.statepill{display:inline-block;padding:5px 10px;border-radius:999px;background:#16233a;font-size:12px;font-weight:800}@media(max-width:520px){.alert .levels{grid-template-columns:repeat(2,1fr)}}
+.small{font-size:12px;color:var(--muted)}.newsItem{border:1px solid #202d45;border-radius:14px;padding:10px;background:#0b1322;margin:7px 0}.newsItem.high{border-color:#7b2938}.newsItem.med{border-color:#6d5a19}.liqBox{border:1px solid #34445f;border-radius:16px;padding:10px;background:#0b1322;margin-top:8px}.liqRow{padding:10px 4px;border-bottom:1px solid #202d45}.liqRow:last-child{border-bottom:0}.liqBuy{border-right:3px solid #1b8c58}.liqSell{border-right:3px solid #a33a4c}.mutedLine{color:var(--muted);font-size:12px;line-height:1.6}.row{display:flex;justify-content:space-between;gap:10px;align-items:center}.footer{padding:10px;text-align:center;color:#65738d;font-size:11px}
+@media(max-width:520px){.controls{grid-template-columns:1fr 1fr}.controls button{grid-column:1/-1}.grid2{grid-template-columns:1fr 1fr}.big{font-size:28px}}
+
+.pageIntro{background:#0b1322;border:1px solid #202d45;border-radius:14px;padding:10px 12px;margin:10px 0;color:var(--muted);font-size:12.5px;line-height:1.7}.pageIntro b{color:var(--txt)}
+.page{display:none}.page.active{display:block;animation:pgin .18s ease}
+@keyframes pgin{from{opacity:.4;transform:translateY(4px)}to{opacity:1;transform:none}}
+body{padding-bottom:calc(76px + env(safe-area-inset-bottom,0px))}
+#tabbar{position:fixed;left:0;right:0;bottom:0;z-index:50;display:flex;gap:2px;background:rgba(10,16,28,.97);border-top:1px solid var(--line);padding:6px 4px calc(6px + env(safe-area-inset-bottom,0px));backdrop-filter:blur(8px)}
+#tabbar button{flex:1;min-width:0;background:transparent;border:0;color:var(--muted);padding:6px 2px;border-radius:12px;display:flex;flex-direction:column;align-items:center;gap:2px;font-family:inherit;cursor:pointer}
+#tabbar .ni{font-size:19px;line-height:1}#tabbar .nl{font-size:10.5px;white-space:nowrap}
+#tabbar button.on{background:#16233a;color:var(--yellow)}
+#tabbar button.dot::after{content:"";position:absolute;width:8px;height:8px;border-radius:50%;background:var(--red);margin:-2px 0 0 18px}
+.head{padding:6px 4px 8px}.head h1{font-size:18px}.head p{display:none}
+
+.liveNewsHero{border:1px solid #334767;background:linear-gradient(180deg,#0e1828,#0b1322);border-radius:20px;padding:15px;margin:12px 0}
+.liveNewsTitle{font-size:20px;font-weight:900;text-align:center;margin-bottom:5px}
+.liveNewsSub{text-align:center;color:var(--muted);font-size:12px;line-height:1.6}
+.liveTape{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:12px}
+.liveCell{background:#080f1c;border:1px solid #202d45;border-radius:14px;padding:12px;text-align:center}
+.liveCell .k{color:var(--muted);font-size:11px}.liveCell .v{font-size:20px;font-weight:900;margin-top:4px}
+.liveMove{font-size:28px;font-weight:950;text-align:center;margin:12px 0 4px}.liveMove.up{color:var(--green)}.liveMove.down{color:var(--red)}.liveMove.flat{color:var(--yellow)}
+.reactionGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:10px}.reactionCell{background:#0b1322;border:1px solid #202d45;border-radius:12px;padding:9px;text-align:center}.reactionCell .rtime{font-size:11px;color:var(--muted)}.reactionCell .rval{font-size:16px;font-weight:800;margin-top:3px}
+.liveDot{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--red);margin-left:5px;box-shadow:0 0 10px #ff5f78}
+@media(max-width:520px){.reactionGrid{grid-template-columns:repeat(3,1fr)}.liveNewsTitle{font-size:18px}}
+
+/* Book numbers only — enlarged without changing layout */
+.book .row .num, .book .row .bid, .book .row .ask { font-size: 20px; font-weight: 800; line-height: 1.25; }
+.book .row { min-height: 31px; }
+@media(max-width:520px){ .book .row .num, .book .row .bid, .book .row .ask { font-size: 21px; } }
+
+/* Paired Order Book layout: quantities + prices stay on the same row */
+.bookTable{width:100%;overflow:hidden}
+.bookHead,.bookRow{display:grid;grid-template-columns:1fr 1fr 26px 1fr 1fr;align-items:center;text-align:center;column-gap:4px}
+.bookHead{padding:6px 2px 8px;border-bottom:1px solid #24324b;font-size:12px}
+.bookRow{min-height:34px;border-bottom:1px solid rgba(255,255,255,.035)}
+.bookRow .qty,.bookRow .price{font-size:21px;font-weight:850;line-height:1.15;white-space:nowrap}
+.bookRow .mid{font-size:20px;color:#71809b;font-weight:700}
+.bookHead .bid:first-child,.bookRow .bid:first-child{text-align:right}
+.bookHead .bid:nth-child(2),.bookRow .bid:nth-child(2){text-align:right}
+.bookHead .ask:nth-child(4),.bookRow .ask:nth-child(4){text-align:left}
+.bookHead .ask:last-child,.bookRow .ask:last-child{text-align:left}
+.bookEmpty{text-align:center;padding:20px;color:var(--muted);font-size:14px}
+@media(max-width:520px){.bookRow .qty,.bookRow .price{font-size:22px}.bookHead{font-size:11px}.bookHead,.bookRow{grid-template-columns:1fr 1.05fr 22px 1.05fr 1fr;column-gap:2px}}
+.cfgGrid{display:grid;grid-template-columns:1fr 1fr;gap:9px}.cfgGrid label{display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--muted)}.cfgGrid input,.cfgGrid select{background:#0c1422;color:var(--txt);border:1px solid #2a3956;border-radius:12px;padding:11px;font-size:15px;width:100%}.cfgToggle{display:flex!important;flex-direction:row!important;align-items:center;justify-content:space-between;background:#0b1322;border:1px solid #202d45;border-radius:12px;padding:11px;grid-column:1/-1;color:var(--txt)!important;font-size:13px!important}.cfgToggle input{width:22px;height:22px;flex:0 0 auto}
+.log{white-space:pre-wrap;font-size:11px;line-height:1.6;color:var(--muted);max-height:220px;overflow:auto;direction:ltr;text-align:left}
+</style>
+<style>
+#tabbar{overflow-x:auto;scrollbar-width:none}#tabbar::-webkit-scrollbar{display:none}#tabbar button{flex:1 0 58px}
+#page-flow canvas{width:100%;display:block;border-radius:12px;border:1px solid #202d45}
+.flCtl{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px}.flCtl select,.flCtl input,.flCtl button{background:#0b1322;color:var(--txt);border:1px solid #202d45;border-radius:10px;padding:7px 9px;font-family:inherit;font-size:13px}.flCtl input{width:64px}
+.flKpi{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.flKpi .metric{padding:9px 6px}.flKpi .value{font-size:16px}.flKpi .label{font-size:11.5px}
+#flLadder{position:relative;max-height:420px;overflow:auto;border:1px solid #202d45;border-radius:12px;background:#060d1a;direction:ltr;font-variant-numeric:tabular-nums}
+.flRow{display:grid;grid-template-columns:1fr 1fr 1fr 70px;font-size:12px;border-bottom:1px solid #0f1a2c}.flRow span{padding:4px 6px;text-align:right;white-space:nowrap}.flHead{position:sticky;top:0;background:#0b1322;color:var(--muted);font-size:11px;z-index:1}
+.flRow .flP{background:#0b1322;color:#cdd7ee;font-weight:700}.flNow{outline:1px solid var(--blue);outline-offset:-1px}.flNow .flP{background:#2563eb;color:#fff}
+.flList{max-height:300px;overflow:auto;direction:ltr;font-variant-numeric:tabular-nums}.flTr{display:flex;justify-content:space-between;gap:10px;padding:5px 4px;border-bottom:1px solid #0f1a2c;font-size:12.5px}.flTr.g{color:var(--green)}.flTr.r{color:var(--red)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <h1>XAU Engine V26 — Spread & Risk Fix</h1>
+    <p>XAU/USD • Pre-Move Reality • Volume Profile • Liquidity • Market Structure • 3-Candle Forecast • Entry Timing</p>
+    <div id="status" class="status">تهيئة اتصال V26...</div><div id="liveClock" class="small" style="margin-top:4px">الساعة: — • Live: —</div>
+  </div>
+
+  <div class="grid2">
+    <div class="metric"><div class="label">السعر الحقيقي XAU/USD</div><div id="price" class="value">—</div><div id="quote" class="small">—</div></div>
+    <div class="metric"><div class="label">Market Structure</div><div id="structure" class="value">—</div><div id="structureSub" class="small">—</div></div>
+  </div>
+
+  <div id="signalAlert" class="alert" style="display:none">
+    <div class="small">🚨 إشارة دخول مؤكدة</div>
+    <div id="alertSignal" class="sig">—</div>
+    <div id="alertReason" class="small">—</div>
+    <div class="levels">
+      <div class="metric"><div class="label">Entry</div><div id="alertEntry" class="value">—</div></div>
+      <div class="metric"><div class="label">SL</div><div id="alertSL" class="value red">—</div></div>
+      <div class="metric"><div class="label">TP1</div><div id="alertTP1" class="value green">—</div></div>
+      <div class="metric"><div class="label">TP2</div><div id="alertTP2" class="value green">—</div></div>
+      <div class="metric"><div class="label">TP3</div><div id="alertTP3" class="value green">—</div></div>
+    </div>
+    <div id="alertState" class="small" style="margin-top:10px">—</div>
+  </div>
+
+<div id="pages">
+<section class="page" id="page-home" data-page="home">
+<div class="pageIntro"><b>🏠 القرار</b> — القرار الحالي وخطة الصفقة وحالة السوق: ابدأ من هنا لتعرف هل توجد صفقة أم انتظار.</div>
+  <div class="card">
+    <div class="row"><span class="label">قرار الدخول — يعتمد على التوقيت وليس الاتجاه فقط</span><span id="decisionTag" class="tag">WAIT</span></div>
+    <div id="decisionBox" class="decision">
+      <div id="decision" class="big yellow">WAIT</div>
+      <div id="reason" class="small">ننتظر شرط الدخول.</div>
+    </div>
+  </div>
+
+  <div id="tradePlanCard" class="card" style="border:1px solid #2e7d5a;box-shadow:0 0 0 1px rgba(46,125,90,.08)">
+    <h3 style="margin-top:0">💰 الصفقات — المكان المخصص للصفقة الحالية</h3>
+    <div class="note" style="margin-bottom:10px">هنا ستجد الصفقة عندما تتأكد شروط محرك الاستراتيجية. إصدار المحرك الحالي V26.</div>
+    <div id="planEmpty" class="empty">⚪ WAIT — لا توجد صفقة مؤكدة الآن. الاتجاه وحده لا يكفي للدخول.</div>
+    <div id="planStatus" class="tag" style="margin:10px 0">الحالة: انتظار تأكيد Break + Retest + استمرار</div>
+    <div id="plan" class="plan" style="display:none">
+      <div class="metric"><div class="label">الاتجاه</div><div id="tradeSide" class="value">—</div></div>
+      <div class="metric"><div class="label">Entry الحقيقي</div><div id="entry" class="value">—</div></div>
+      <div class="metric"><div class="label">SL</div><div id="sl" class="value red">—</div></div>
+      <div class="metric"><div class="label">TP1</div><div id="tp1" class="value green">—</div></div>
+      <div class="metric"><div class="label">TP2</div><div id="tp2" class="value green">—</div></div>
+      <div class="metric"><div class="label">TP3</div><div id="tp3" class="value green">—</div></div>
+    </div>
+    <p class="note">الخطة تُثبَّت لحظة ظهور الإشارة ولا تتحرك مع السعر بعدها. TP/SL تُستخرج من السيولة وVolume Profile وSwing وATR، وTP1 يغطي السبريد دائمًا، ويمكن فرض نسبة ربح/خسارة أدنى من الإعدادات.</p>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0">📒 سجل الصفقات الافتراضي</h3>
+    <div class="note" style="margin-bottom:8px">كل إشارة BUY/SELL تُسجَّل تلقائيًا كصفقة افتراضية (لوت 0.01 = أونصة واحدة) وتُغلق عند TP1 أو SL، مع خصم السبريد. صفقة واحدة مفتوحة في كل مرة.</div>
+    <div class="grid2">
+      <div class="metric"><div class="label">الصفقات</div><div id="jrN" class="value">0</div><div id="jrWL" class="small">—</div></div>
+      <div class="metric"><div class="label">نسبة الربح</div><div id="jrWin" class="value">—</div><div id="jrPF" class="small">PF —</div></div>
+      <div class="metric"><div class="label">الصافي (0.01 لوت)</div><div id="jrNet" class="value">—</div><div id="jrAvg" class="small">—</div></div>
+      <div class="metric"><div class="label">الصفقة المفتوحة</div><div id="jrOpen" class="value">—</div><div id="jrOpenSub" class="small">—</div></div>
+    </div>
+    <div style="overflow:auto;margin-top:10px"><table id="jrTable"><thead><tr><th>الوقت</th><th>الفريم</th><th>الاتجاه</th><th>النوع</th><th>الدخول</th><th>النتيجة</th><th>$</th></tr></thead><tbody></tbody></table></div>
+    <button id="jrReset" style="width:100%;margin-top:10px;background:#0c1422;color:var(--txt);border:1px solid #2a3956;border-radius:12px;padding:11px;font-size:14px">🗑️ مسح السجل الافتراضي</button>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0">🧭 مسار الحركة — تصحيح أم انعكاس حقيقي؟</h3>
+    <div id="pathStateBox" class="decision watch">
+      <div id="pathStateTitle" class="big yellow">WAIT</div>
+      <div id="pathStateReason" class="small">—</div>
+    </div>
+    <div class="grid2" style="margin-top:10px">
+      <div class="metric"><div class="label">الحالة</div><div id="pathStateLabel" class="value">—</div></div>
+      <div class="metric"><div class="label">ثقة التصنيف</div><div id="pathConfidence" class="value">—</div></div>
+    </div>
+    <div class="note" style="margin-top:10px">
+      <span class="tag">↩️ CORRECTION</span> تصحيح مؤقت: لا نغيّر الاتجاه الرئيسي.<br>
+      <span class="tag">🔄 REVERSAL</span> انعكاس حقيقي: كسر البنية + انقلاب الضغط + استمرار؛ عندها يتغير مسار التحليل.<br>
+      <span class="tag">⏸️ MOVE END</span> توقف/إجهاد: لا نعتبره انعكاسًا حتى تتغير البنية.
+    </div>
+  </div>
+
+  <div class="card" id="preMoveRealityCard">
+    <h3 style="margin-top:0">⚡ واقع الحركة قبل الانطلاق</h3>
+    <div class="note">هذه الطبقة لا تتنبأ من فراغ؛ تقرأ ما بدأ يتكوّن فعليًا من السعر، التذبذب، الإغلاق، الحجم المتاح، السحب، والـTick اللحظي.</div>
+    <div id="preMoveState" class="decision watch" style="margin-top:9px"><div id="preMoveTitle" class="big yellow">WAIT</div><div id="preMoveReason" class="small">—</div></div>
+    <div class="grid2" style="margin-top:10px">
+      <div class="metric"><div class="label">قوة الواقع</div><div id="preMoveScore" class="value">—</div></div>
+      <div class="metric"><div class="label">الاتجاه الجاري</div><div id="preMoveDir" class="value">—</div></div>
+    </div>
+    <div class="small" id="preMoveDetails" style="margin-top:9px">—</div>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0">🧭 تحليل M30 + H4 — السياق متعدد الأطر</h3>
+    <div class="note" style="margin-bottom:10px">M30 يقرأ الاتجاه المتوسط، وH4 يقرأ السياق الرئيسي. هذا القسم إضافي ولا يغيّر منطق القرار الحالي بمفرده.</div>
+    <div class="grid2">
+      <div class="metric"><div class="label">M30 — الاتجاه</div><div id="mtf30Dir" class="value">—</div><div id="mtf30Sub" class="small">جاري التحليل…</div></div>
+      <div class="metric"><div class="label">H4 — الاتجاه الرئيسي</div><div id="mtf4hDir" class="value">—</div><div id="mtf4hSub" class="small">جاري التحليل…</div></div>
+    </div>
+    <div id="mtfAlignment" class="tag" style="display:block;margin-top:10px;text-align:center">⏳ جاري قراءة M30 وH4…</div>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0">🧠 مؤشر حالة السوق الذكي — Correction أم Reversal؟</h3>
+    <div class="card" style="margin-top:10px">
+      <h3 style="margin-top:0">📅 اتجاه اليوم والأسبوع — فلتر الاتجاه الأكبر</h3>
+      <div class="grid2">
+        <div class="metric"><div class="label">D1 — الاتجاه اليومي</div><div id="mtf1dDir" class="value">—</div><div id="mtf1dSub" class="small">جاري التحليل…</div></div>
+        <div class="metric"><div class="label">W1 — اتجاه الأسبوع</div><div id="mtf1wDir" class="value">—</div><div id="mtf1wSub" class="small">جاري التحليل…</div></div>
+      </div>
+      <div id="higherTFAlignment" class="tag" style="display:block;margin-top:10px;text-align:center">⏳ جاري قراءة D1 وW1…</div>
+    </div>
+    <div class="note" style="margin-bottom:10px">يقرأ M1 → M5 → M15 → M30 → H1 → H4 معًا لتصنيف الحركة الحالية. هذا المؤشر وصفي ولا يغيّر قرار الدخول وحده.</div>
+    <div id="smartMarketState" class="decision watch"><div id="smartStateTitle" class="big yellow">⏳ جاري التحليل</div><div id="smartStateReason" class="small">—</div></div>
+    <div class="grid2" style="margin-top:10px" id="smartTfGrid"></div>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0">حالة السوق الحالية</h3>
+    <div id="marketState" class="decision watch"><div id="marketStateTitle" class="big yellow">VALUE BALANCE</div><div id="marketStateReason" class="small">—</div></div>
+  </div>
+
+</section>
+<section class="page" id="page-timing" data-page="timing">
+<div class="pageIntro"><b>🎯 التوقيت</b> — توقيت الدخول: مناطق Volume Profile ومستويات الكسر وإعادة الاختبار وشروط التأكيد.</div>
+  <div class="grid2">
+    <div class="metric"><div class="label">Microstructure Score</div><div id="score" class="value">—</div><div id="scoreSub" class="small">—</div></div>
+    <div class="metric"><div class="label">Order Flow Proxy</div><div id="flow" class="value">—</div><div id="flowSub" class="small">—</div></div>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0">مناطق Volume Profile</h3>
+    <div class="grid2">
+      <div class="metric"><div class="label">POC</div><div id="poc" class="value">—</div></div>
+      <div class="metric"><div class="label">VAH</div><div id="vah" class="value">—</div></div>
+      <div class="metric"><div class="label">VAL</div><div id="val" class="value">—</div></div>
+      <div class="metric"><div class="label">ATR 14</div><div id="atr" class="value">—</div></div>
+    </div>
+    <p id="vpState" class="note">—</p>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0">مستويات التوقيت</h3>
+    <div id="phase" class="note" style="margin-bottom:10px">حالة الحركة: —</div><div id="stateSummary" class="note" style="margin-bottom:10px">الحالة الحالية: —</div>
+    <table>
+      <tr><th>الحالة</th><th>المستوى</th><th>المعنى</th></tr>
+      <tr><td>Breakout</td><td id="bo">—</td><td>اختراق VAH</td></tr>
+      <tr><td>Breakdown</td><td id="bd">—</td><td>كسر VAL</td></tr>
+      <tr><td>Upper acceptance</td><td id="upper">—</td><td>قبول أعلى القيمة</td></tr>
+      <tr><td>Lower acceptance</td><td id="lower">—</td><td>قبول أسفل القيمة</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0">Entry Timing — Break / Retest / Confirmation</h3>
+    <div class="grid2">
+      <div class="metric"><div class="label">المرحلة</div><div id="timingStage" class="value">—</div></div>
+      <div class="metric"><div class="label">Trigger</div><div id="timingTrigger" class="value">—</div></div>
+      <div class="metric"><div class="label">Retest Band</div><div id="timingBand" class="value">—</div></div>
+      <div class="metric"><div class="label">جودة التأكيد</div><div id="timingQuality" class="value">—</div></div>
+    </div>
+    <p id="timingReason" class="note">—</p>
+    <div id="timingChecklist" class="note" style="margin-top:12px;text-align:right">—</div>
+    <div class="tag" style="margin-top:10px">V26: Break مغلق + Retest موثق + Confirmation حي + حد جودة ≥70% + R:R أدنى بعد السبريد</div>
+  </div>
+
+</section>
+<section class="page" id="page-forecast" data-page="forecast">
+<div class="pageIntro"><b>🔮 التنبؤ</b> — التنبؤ بالشموع القادمة، ومحرك الانعكاس والإجهاد، وسجل دقة التنبؤ الحي.</div>
+  <div class="card">
+    <h3 style="margin-top:0">Reversal / Exhaustion Engine</h3>
+    <div id="riskSignals" class="note">—</div>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0">🔮 التنبؤ بالشموع القادمة</h3>
+    <div class="note" style="margin-bottom:10px">هذا القسم للتنبؤ فقط، وليس مكان الصفقة. +1 هي الشمعة القادمة، +2 بعدها، +3 الثالثة.</div>
+    <div id="forecast"></div>
+    <p class="note">الثقة هنا تعني اتساق النموذج مع العوامل المستخدمة وليست احتمالًا مضمونًا للربح.</p>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0">📊 سجل دقة التنبؤ</h3>
+    <div class="grid2">
+      <div class="metric"><div class="label">+1 دقة الاتجاه</div><div id="acc1" class="value">—</div><div id="mae1" class="small">MAE —</div></div>
+      <div class="metric"><div class="label">+2 دقة الاتجاه</div><div id="acc2" class="value">—</div><div id="mae2" class="small">MAE —</div></div>
+      <div class="metric"><div class="label">+3 دقة الاتجاه</div><div id="acc3" class="value">—</div><div id="mae3" class="small">MAE —</div></div>
+      <div class="metric"><div class="label">عدد الاختبارات</div><div id="accN" class="value">0</div><div id="accMode" class="small">السجل الحي فقط</div></div>
+    </div>
+    <div id="accuracySummary" class="note" style="margin-top:10px">لم تكتمل بعد أي مقارنة مستقبلية.</div>
+    <button id="resetAccuracy" style="width:100%;margin-top:10px;background:#0c1422;color:var(--txt);border:1px solid #2a3956;border-radius:12px;padding:11px;font-size:14px">🗑️ إعادة ضبط السجل الحي</button>
+  </div>
+
+</section>
+<section class="page" id="page-chart" data-page="chart">
+<div class="pageIntro"><b>📈 السيولة</b> — الرسم البياني ومناطق القيمة وخريطة السيولة الكبيرة وآخر 8 شموع.</div>
+  <div class="card">
+    <h3 style="margin-top:0">السعر + مناطق القيمة</h3>
+    <canvas id="chart" width="700" height="260"></canvas>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0">🐋 خريطة السيولة الكبيرة — مناطق تراكم/تصريف محتملة</h3>
+    <div id="whaleMapSummary" class="note">—</div>
+    <div id="whaleZones" class="liqBox">—</div>
+    <div class="mutedLine" style="margin-top:10px">كل مناطق السيولة أصبحت داخل صندوق واحد. التنبيه مهم: لا توجد في بيانات XAU/USD العامة داخل هذا الملف بطاقة تكشف مراكز البنوك أو «الحيتان» مباشرة. هذه الخريطة استدلالية من Volume Profile وTick/Flow وSwing/Equal High-Low والرفض السعري، وليست إثباتًا أن بنكًا معينًا اشترى أو باع.</div>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0">آخر 8 شموع وتحليلها</h3>
+    <div style="overflow:auto"><table id="candles"><thead><tr><th>الوقت</th><th>O</th><th>H</th><th>L</th><th>C</th><th>Flow Δ</th><th>Structure</th></tr></thead><tbody></tbody></table></div>
+  </div>
+
+</section>
+<section class="page" id="page-news" data-page="news">
+<div class="pageIntro"><b>📰 الأخبار المباشرة</b> — هنا نراقب <b>رد فعل الذهب نفسه</b> لحظة الخبر: هل يرتفع أم يهبط وكم تحرك منذ لحظة الإصدار.</div>
+  <div class="liveNewsHero" id="liveReactionCard">
+    <div class="liveNewsTitle"><span class="liveDot"></span> حركة الذهب مع الخبر — مباشر</div>
+    <div id="liveReactionEvent" class="liveNewsSub">جارٍ تحديد الخبر المؤثر...</div>
+    <div id="liveReactionMove" class="liveMove flat">—</div>
+    <div id="liveReactionText" class="liveNewsSub">ننتظر بيانات السعر...</div>
+    <div class="liveTape">
+      <div class="liveCell"><div class="k">السعر الآن</div><div id="reactionNow" class="v">—</div></div>
+      <div class="liveCell"><div class="k">سعر قبل الخبر</div><div id="reactionBase" class="v">—</div></div>
+      <div class="liveCell"><div class="k">التغير السعري</div><div id="reactionDelta" class="v">—</div></div>
+      <div class="liveCell"><div class="k">التغير %</div><div id="reactionPct" class="v">—</div></div>
+    </div>
+    <div class="reactionGrid">
+      <div class="reactionCell"><div class="rtime">بعد 1 دقيقة</div><div id="reaction1m" class="rval">—</div></div>
+      <div class="reactionCell"><div class="rtime">بعد 5 دقائق</div><div id="reaction5m" class="rval">—</div></div>
+      <div class="reactionCell"><div class="rtime">بعد 15 دقيقة</div><div id="reaction15m" class="rval">—</div></div>
+    </div>
+    <div id="reactionStatus" class="decision watch" style="padding:12px;margin-top:10px">⏳ جارٍ حساب حركة الذهب...</div>
+    <div class="mutedLine" style="margin-top:9px">هذا القسم يقرأ سعر XAU/USD الحي من Biquote ويقارن الحركة بلحظة الخبر. لا يعني ارتفاع الذهب أن الخبر نفسه كان إيجابيًا أو سلبيًا بشكل مضمون.</div>
+  </div>
+  <div class="card" id="liveNewsCard">
+    <h3 style="margin-top:0">📰 الأخبار الاقتصادية المؤثرة على الذهب — مباشر</h3>
+    <div id="newsRisk" class="decision watch" style="padding:12px;margin-bottom:10px">جارٍ حساب خطر الأخبار...</div>
+    <div id="liveNewsCountdown" class="decision watch" style="padding:14px;margin-bottom:10px">⏳ جارٍ حساب العدّ التنازلي...</div>
+    <div id="todayNews" class="note" style="margin-bottom:10px">—</div>
+    <div id="macroNewsList" class="note">—</div>
+    <div id="newsDirectionWarning" class="decision" style="padding:12px;margin-top:10px">—</div>
+    <div class="mutedLine" style="margin-top:10px">المواعيد مبنية على التقويمات الرسمية المتاحة. عند لحظة الإصدار يظهر تنبيه فوري داخل الصفحة، ويمكن تفعيل إشعارات المتصفح من زر الإشعارات. النظام لا يقرأ نتيجة الخبر نفسها من دون مصدر حي؛ لذلك اتجاه الصعود/الهبوط المعروض هو <b>ميل السوق الفني قبل الخبر</b> وليس توقعًا مؤكدًا لنتيجة الخبر.</div>
+  </div>
+
+</section>
+<section class="page" id="page-flow" data-page="flow">
+<div class="pageIntro"><b>🌊 خريطة التدفق</b> — Order Flow وVolume Profile حقيقيان من صفقات ودفتر أوامر Binance Futures (XAUUSDT). السيولة، الصفقات المنفذة، Delta وCVD، كلها لحظية. هذي بيانات سوق Binance وليست سوق MT5.</div>
+  <div class="card">
+    <div class="flCtl">
+      <b id="flStatus" style="color:var(--red)">غير متصل</b>
+      <select id="flStep"><option value="0.1">شريحة 0.1</option><option value="0.25">0.25</option><option value="0.5" selected>0.5</option><option value="1">1.0</option></select>
+      <select id="flRange"><option value="8">±8$</option><option value="15">±15$</option><option value="20" selected>±20$</option><option value="40">±40$</option></select>
+      <label style="font-size:12px;color:var(--muted)">صفقة كبيرة ≥ <input id="flBig" type="number" value="5" min="0.1" step="0.5"></label>
+      <button id="flReset" type="button">تصفير الجلسة</button>
+    </div>
+    <div class="flKpi">
+      <div class="metric"><div class="label">BID</div><div id="flBid" class="value">—</div></div>
+      <div class="metric"><div class="label">ASK</div><div id="flAsk" class="value">—</div></div>
+      <div class="metric"><div class="label">السبريد</div><div id="flSpr" class="value">—</div></div>
+      <div class="metric"><div class="label">POC</div><div id="flPoc" class="value">—</div></div>
+      <div class="metric"><div class="label">VWAP</div><div id="flVwap" class="value">—</div></div>
+      <div class="metric"><div class="label">CVD</div><div id="flCvdV" class="value">—</div></div>
+      <div class="metric"><div class="label">حجم شراء</div><div id="flBuy" class="value green">—</div></div>
+      <div class="metric"><div class="label">حجم بيع</div><div id="flSell" class="value red">—</div></div>
+      <div class="metric"><div class="label">ميزان الدفتر</div><div id="flBook" class="value">—</div></div>
+    </div>
+  </div>
+  <div class="card"><h3 style="margin-top:0">خريطة السيولة الحرارية + الصفقات (آخر 5 دقائق)</h3>
+    <canvas id="flHeat" data-h="360"></canvas>
+    <div class="note" style="margin-top:6px">اللون = حجم الأوامر الواقفة في الدفتر عند كل سعر (أزرق قليل ← أصفر/أبيض كبير). الدوائر = صفقات منفذة: <span class="green">خضراء مشتري مبادر</span>، <span class="red">حمراء بائع مبادر</span>.</div></div>
+  <div class="card"><h3 style="margin-top:0">سلم الأسعار: Delta • Volume Profile • سيولة الدفتر</h3>
+    <div id="flLadder"></div>
+    <div class="note" style="margin-top:6px">DELTA = (شراء − بيع) منفذ عند السعر منذ فتح الصفحة. VP = الحجم الكلي. COB = الأوامر الواقفة الحالية (أخضر طلب، أحمر عرض).</div></div>
+  <div class="card"><h3 style="margin-top:0">CVD — الحجم التراكمي (Delta)</h3><canvas id="flCvd" data-h="130"></canvas></div>
+  <div class="card"><h3 style="margin-top:0">آخر الصفقات المنفذة</h3><div id="flTape" class="flList"></div></div>
+  <div class="card"><h3 style="margin-top:0">سجل أحداث السيولة</h3><div id="flEvents" class="flList"></div></div>
+</section>
+<section class="page" id="page-ob" data-page="ob">
+<div class="pageIntro"><b>🧱 Order Blocks</b> — مناطق الشموع المؤسسية المحتملة: آخر شمعة عكسية قبل حركة اندفاعية كسرت الهيكل. تُحذف المنطقة لما السعر يغلق عبرها.</div>
+  <div class="card">
+    <h3 style="margin-top:0">الشارت + Order Blocks</h3>
+    <canvas id="obChart" width="700" height="320" style="width:100%;height:auto"></canvas>
+    <div class="note" style="margin-top:8px"><span class="green">■ OB صاعد (طلب)</span> &nbsp; <span class="red">■ OB هابط (عرض)</span> &nbsp; <span style="color:var(--yellow)">- - POC</span></div>
+  </div>
+  <div class="card">
+    <h3 style="margin-top:0">الحالة</h3>
+    <div id="obSummary" class="note">—</div>
+    <div class="grid2" style="margin-top:10px">
+      <div class="metric"><div class="label">أقرب OB صاعد</div><div id="obNearBull" class="value green">—</div></div>
+      <div class="metric"><div class="label">أقرب OB هابط</div><div id="obNearBear" class="value red">—</div></div>
+    </div>
+  </div>
+  <div class="card">
+    <h3 style="margin-top:0">كل المناطق الصالحة</h3>
+    <div style="overflow:auto"><table id="obTable"><thead><tr><th>النوع</th><th>من</th><th>إلى</th><th>القوة (×ATR)</th><th>البعد</th><th>الحالة</th></tr></thead><tbody></tbody></table></div>
+    <div class="mutedLine" style="margin-top:10px">القوة = حجم الحركة الاندفاعية بعد الشمعة ÷ ATR. الحالة: «داخل المنطقة» لو السعر فيها، «لُمست» لو رجع لها ورفض. هذا استدلال من السعر فقط وليس إثباتًا لمراكز مؤسسات.</div>
+  </div>
+</section>
+<section class="page" id="page-settings" data-page="settings">
+<div class="pageIntro"><b>⚙️ الإعدادات</b> — الإطار الزمني وعدد الشموع وتفعيل التنبيهات، وشرح منطق النظام.</div>
+  <div class="card">
+    <div class="controls">
+      <select id="tf"><option value="3m">3m</option><option value="5m" selected>5m</option><option value="15m">15m</option></select>
+      <select id="bars"><option value="80">80 bars</option><option value="160">160 bars</option><option value="300">300 bars</option></select>
+      <button id="refresh">تحديث الآن</button><button id="notify" style="grid-column:1/-1">🔔 تفعيل تنبيه الصفقات + الأخبار</button><div id="notifyStatus" class="small" style="grid-column:1/-1;text-align:center">التنبيه غير مفعل</div>
+    <button id="testNotify" style="grid-column:1/-1">🔊 اختبار التنبيه</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0">⚙️ إعدادات الصفقة</h3>
+    <div class="cfgGrid">
+      <label>السبريد ($ للأونصة)<input id="cfgSpread" type="number" step="0.01" min="0" max="5" value="0.30"></label>
+      <label>أقل نسبة ربح/خسارة لـ TP1<select id="cfgRR"><option value="0">بدون حد (مثل V25)</option><option value="0.8">0.8</option><option value="1">1.0</option><option value="1.2">1.2</option><option value="1.5">1.5</option></select></label>
+      <label class="cfgToggle">دخول الزخم والانعكاس (بدون Retest)<input id="cfgMomentum" type="checkbox"></label>
+      <label class="cfgToggle">بوابة Order Flow من Binance<input id="cfgOF" type="checkbox"></label>
+      <label class="cfgToggle">فلتر الأطر العليا (W1/D1/H4/M30)<input id="cfgHTF" type="checkbox"></label>
+    </div>
+    <div id="cfgNote" class="note" style="margin-top:8px">يُحفظ تلقائيًا. السبريد يُخصم من كل صفقة في السجل الافتراضي، وTP1 لا يكون أقرب من (المخاطرة × النسبة + السبريد)، أو ضعف السبريد على الأقل عند اختيار «بدون حد».</div>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0">منطق النظام</h3>
+    <div class="note">
+      <span class="tag">1</span> الاتجاه يحدد السياق وليس نقطة الدخول.<br>
+      <span class="tag">2</span> Volume Profile يحدد POC/VAH/VAL ومكان القيمة.<br>
+      <span class="tag">3</span> لا دخول من منتصف القيمة.<br>
+      <span class="tag">4</span> الاختراق يحتاج إغلاقًا + تدفقًا + إعادة اختبار.<br>
+      <span class="tag">5</span> إجهاد الحركة/الرفض/اختلاف التدفق يلغي مطاردة السعر.<br>
+      <span class="tag">6</span> لا يعتمد النظام على مؤشر التشبع؛ القرار مبني على البنية، التدفق، الزخم، الكسر وإعادة الاختبار.<br>
+      <span class="tag">7</span> Entry لا يظهر إلا عند تحقق التوقيت الفعلي.<br>
+      <span class="tag">8</span> بعد الاختراق نميز بين تثبيت السعر، التأكيد، وفشل الاختراق.<br>
+      <span class="tag">9</span> التماسك فوق VAH لا يعني شراءً تلقائيًا؛ ننتظر توسع النطاق وتدفقًا مؤيدًا.<br>
+      <span class="tag">10</span> داخل VALUE BALANCE تصبح التوقعات سيناريوهات وليست اتجاهًا مؤكدًا.<br>
+      <span class="tag">11</span> أوقات الشموع تُحوّل إلى توقيت الجهاز المحلي عند توفر وقت المصدر.<br>      <span class="tag">12</span> V9 يفصل الاتجاه البطيء EMA عن التحول اللحظي، ويراقب LH/LL وHH/HL وكسر Swing الأخير.<br>      <span class="tag">13</span> التحول المبكر لا يُعامل كانعكاس؛ محرك المسار يفرق بين CORRECTION وREVERSAL. الانعكاس عالي الثقة يغيّر اتجاه التحليل، بينما التصحيح يحافظ على الاتجاه الأصلي.
+    </div>
+  </div>
+  <div class="footer">مصدر بيانات OHLC والـtick: Biquote XAUUSD — لا يوجد تنفيذ صفقات آلي. البيانات CFD/MT5 وقد تختلف عن وسيطك.</div>
+</section>
+
+<section class="page" id="page-hybrid" data-page="hybrid">
+  <div class="head"><h1>V26 · Gold Real Order Flow</h1><p>XAUUSDT/PAXG على Binance — Order Flow حقيقي مجاني، بدون BTC وبدون بيانات وهمية</p><div id="ofStatus" class="status">OFFLINE</div></div>
+  <div class="card">
+    <div class="controls">
+      <select id="ofSym"><option value="XAUUSDT">XAUUSDT — Binance Futures Gold</option><option value="PAXGUSDT">PAXG/USDT — Binance Spot Gold</option></select>
+      <select id="ofWin"><option value="10">10s</option><option value="30" selected>30s</option><option value="60">60s</option></select>
+      <button id="ofConnect">اتصال مباشر</button><button id="ofStop">إيقاف</button>
+    </div>
+    <div class="note" style="margin-top:8px">المصدر: Binance Futures XAUUSDT أو Binance Spot PAXG/USDT. القراءة من Trades + Top-20 Order Book عبر WebSocket العام الحالي، بدون API Key. الـOrder Flow يعمل مستقلًا ثم يدخل كفلتر توافق مع محرك الاستراتيجية؛ ليس دفتر XAU/USD الفوري أو CME.</div>
+  </div>
+  <div id="ofSignal" class="decision watch"><div id="ofSignalTitle" class="big yellow">WAIT</div><div id="ofSignalReason" class="small">ننتظر بيانات Gold Order Flow حقيقية.</div></div>
+  <div class="grid2">
+    <div class="card"><h3>حالة Order Flow</h3><div class="metric"><div class="label">Stage</div><div id="ofStage" class="value">WAIT</div><div id="ofStageSub" class="small">—</div></div><div class="metric" style="margin-top:8px"><div class="label">Sequence</div><div id="ofSequence" class="small">Liquidity Sweep → Pressure → Absorption/Displacement → Structure Shift → Retest → Entry</div></div></div>
+    <div class="card"><h3>Entry Engine</h3><div class="grid2"><div class="metric"><div class="label">Entry</div><div id="ofEntry" class="value">—</div></div><div class="metric"><div class="label">SL</div><div id="ofSL" class="value red">—</div></div><div class="metric"><div class="label">TP1</div><div id="ofTP1" class="value green">—</div></div><div class="metric"><div class="label">TP2</div><div id="ofTP2" class="value green">—</div></div></div><div class="metric" style="margin-top:8px"><div class="label">Confidence</div><div id="ofConf" class="value">0%</div></div></div>
+  </div>
+  <div class="grid2">
+    <div class="card"><h3>Gold Real Order Flow — Binance</h3><div class="grid2"><div class="metric">Price<b id="ofPrice">—</b></div><div class="metric">Delta<b id="ofDelta">—</b></div><div class="metric">Buy/Sell Pressure<b id="ofPressure">—</b></div><div class="metric">Intensity<b id="ofIntensity">—</b></div><div class="metric">Book Imbalance<b id="ofImb">—</b></div><div class="metric">Micro Bias<b id="ofMicro">—</b></div><div class="metric">Confluence<b id="ofConfluence">WAIT</b></div><div class="metric">OF Score<b id="ofNetScore">—</b></div></div></div>
+    <div class="card"><h3>Liquidity / Manipulation</h3><div class="grid2"><div class="metric">Sweep<b id="ofSweep">NONE</b></div><div class="metric">Absorption<b id="ofAbs">NONE</b></div><div class="metric">Spoof Risk<b id="ofSpoof">N/A</b></div><div class="metric">Large Trades<b id="ofLarge">0</b></div><div class="metric">Book Age<b id="ofBookAge">—</b></div><div class="metric">Trade Age<b id="ofTradeAge">—</b></div></div></div>
+  </div>
+  <div class="card"><h3>قوة متعددة الشموع — Multi-Candle Order Flow</h3><div class="grid2"><div class="metric">اتجاه 5 شموع<b id="ofMultiSide">—</b></div><div class="metric">قوة متراكمة<b id="ofMultiScore">—</b></div><div class="metric">استمرار الضغط<b id="ofMultiPersist">—</b></div><div class="metric">الحالة<b id="ofMultiState">—</b></div></div><div id="ofMultiReason" class="note" style="margin-top:8px">نجمع بيانات عدة شموع قبل اعتبار Order Flow اتجاهًا مستمرًا.</div></div>
+  <div class="grid2"><div class="card"><h3>Deep Liquidity — السيولة العميقة</h3><div class="grid2"><div class="metric">BID Deep QTY<b id="deepBid">—</b></div><div class="metric">ASK Deep QTY<b id="deepAsk">—</b></div><div class="metric">أقوى BID<b id="deepBidMax">—</b></div><div class="metric">أقوى ASK<b id="deepAskMax">—</b></div><div class="metric">BID Change<b id="deepBidChg">—</b></div><div class="metric">ASK Change<b id="deepAskChg">—</b></div></div></div><div class="card"><h3>Liquidity Asymmetry — عدم توازن السيولة</h3><div class="grid2"><div class="metric">BID Share<b id="liqBidShare">—</b></div><div class="metric">ASK Share<b id="liqAskShare">—</b></div><div class="metric">Deep Imbalance<b id="liqDeepImb">—</b></div><div class="metric">الحالة<b id="liqDeepState">—</b></div></div></div></div>
+  <div class="card"><h3>Gold Book — Binance</h3><div class="bookTable"><div class="bookHead"><b class="bid">BID QTY</b><b class="bid">BID PRICE</b><span></span><b class="ask">ASK PRICE</b><b class="ask">ASK QTY</b></div><div id="ofBookRows"></div></div><div class="note" style="margin-top:8px">هذا دفتر أوامر حقيقي Top-20 من Binance. كشف spoofing هنا احتمالي من تغيّر الجدران/التنفيذ؛ ليس MBO لعقود CME. يُستخدم كفلتر تأكيد للبوت وليس كبديل عن تحليله الأساسي.</div></div>
+  <div class="card"><h3>لماذا لم يدخل؟</h3><div id="ofBlockers" class="note">—</div></div>
+  <div class="card"><h3>Diagnostics</h3><div id="ofLog" class="log"></div></div>
+</section>
+</div>
+</div>
+
+<nav id="tabbar"><button type="button" data-go="home"><span class="ni">🏠</span><span class="nl">القرار</span></button><button type="button" data-go="hybrid"><span class="ni">⚡</span><span class="nl">Gold OF</span></button><button type="button" data-go="timing"><span class="ni">🎯</span><span class="nl">التوقيت</span></button><button type="button" data-go="forecast"><span class="ni">🔮</span><span class="nl">التنبؤ</span></button><button type="button" data-go="chart"><span class="ni">📈</span><span class="nl">السيولة</span></button><button type="button" data-go="news"><span class="ni">📰</span><span class="nl">الأخبار</span></button><button type="button" data-go="flow"><span class="ni">🌊</span><span class="nl">التدفق</span></button><button type="button" data-go="ob"><span class="ni">🧱</span><span class="nl">Order Block</span></button><button type="button" data-go="settings"><span class="ni">⚙️</span><span class="nl">الإعدادات</span></button></nav>
+
+<script>
+const API='https://biquote.io/api';
+const CFG_KEY='xau_v26_cfg';
+const CFG={spread:0.30,minRR:0,momentum:true,ofGate:true,htfGate:true};
+try{const z=JSON.parse(localStorage.getItem(CFG_KEY)||'null');if(z&&typeof z==='object')Object.assign(CFG,z);}catch(e){}
+function saveCfg(){try{localStorage.setItem(CFG_KEY,JSON.stringify(CFG))}catch(e){}}
+
+let state={bars:[],tick:null,liveTicks:[],tf:'5m',n:80,calc:null,feedLagSec:null,feedFresh:false,source:'OHLC',multiTF:{'1m':null,'5m':null,'15m':null,'30m':null,'1h':null,'4h':null,'1d':null,'1w':null}};
+const ACC_KEY='xau_v21_accuracy_v1';
+let accuracy={pending:{},stats:{1:{n:0,hit:0,err:0},2:{n:0,hit:0,err:0},3:{n:0,hit:0,err:0}}};
+try{const z=JSON.parse(localStorage.getItem(ACC_KEY)||'null');if(z?.stats)accuracy.stats=z.stats;}catch(e){}
+function saveAccuracy(){try{localStorage.setItem(ACC_KEY,JSON.stringify({stats:accuracy.stats}))}catch(e){}}
+function predictionDirHit(dir,delta,tol){
+  const d=String(dir||'').toUpperCase();
+  if(d.includes('BULLISH'))return delta>tol;
+  if(d.includes('BEARISH'))return delta<-tol;
+  return Math.abs(delta)<=tol;
+}
+function addAccuracyResult(h,pred,actual,base,atrValue){
+  const st=accuracy.stats[h]||(accuracy.stats[h]={n:0,hit:0,err:0});
+  const delta=actual-base, tol=Math.max(.05,(Number(atrValue)||1)*.12);
+  st.n++; if(predictionDirHit(pred.dir,delta,tol))st.hit++; st.err+=Math.abs(actual-pred.price); saveAccuracy();
+}
+function registerLivePrediction(x,work){
+  if(!work||work.length<30||!x?.rawF?.length)return;
+  const anchor=work.at(-1), key=String(anchor.openTime||anchor.timestamp||anchor.time||''); if(!key||accuracy.pending[key])return;
+  accuracy.pending[key]={anchor:key,base:Number(anchor.close),atr:Number(x.A)||1,preds:x.rawF.slice(0,3).map(f=>({dir:f.dir,price:Number(f.price)})),done:{}};
+}
+function settleLivePredictions(work){
+  if(!work?.length)return; const idx=new Map(work.map((z,i)=>[String(z.openTime||z.timestamp||z.time||''),i]));
+  for(const [key,p] of Object.entries(accuracy.pending)){
+    const i=idx.get(key); if(i==null)continue;
+    for(let h=1;h<=3;h++){const target=work[i+h];if(!target||p.done?.[h])continue; const pred=p.preds[h-1]; if(pred&&Number.isFinite(pred.price)){addAccuracyResult(h,pred,Number(target.close),p.base,p.atr);p.done[h]=true;}}
+    const done=!!work[i+3]; if(done)delete accuracy.pending[key];
+  }
+}
+function walkForwardAccuracy(work){
+  const out={1:{n:0,hit:0,err:0},2:{n:0,hit:0,err:0},3:{n:0,hit:0,err:0}};
+  const start=30, end=work.length-4;
+  for(let i=start;i<=end;i++){
+    const prefix=work.slice(0,i+1), base=Number(prefix.at(-1).close), A=atr(prefix,14)||1;
+    let preds=[1,2,3].map(h=>forecast(prefix,null,h));
+    const imm=immediateStructure(prefix,A);
+    if(imm.bear)preds=preds.map((f,j)=>{const s=f.score-(j===0?.34:j===1?.22:.12);return {...f,score:s,dir:s<-.20?'BEARISH':f.dir,price:s<-.20?base-Math.max(A*(j===0?.42:j===1?.70:1),A*Math.abs(s)):f.price}});
+    if(imm.bull)preds=preds.map((f,j)=>{const s=f.score+(j===0?.34:j===1?.22:.12);return {...f,score:s,dir:s>.20?'BULLISH':f.dir,price:s>.20?base+Math.max(A*(j===0?.42:j===1?.70:1),A*Math.abs(s)):f.price}});
+    for(let h=1;h<=3;h++){const target=work[i+h],pred=preds[h-1];if(!target||!pred)continue;const delta=target.close-base,tol=Math.max(.05,A*.12);out[h].n++;if(predictionDirHit(pred.dir,delta,tol))out[h].hit++;out[h].err+=Math.abs(target.close-pred.price);}
+  }
+  return out;
+}
+function renderAccuracy(work){
+  const _wfKey=(work?.length||0)+"|"+(work?.length?barTimeMs(work.at(-1)):0),_nowWf=Date.now();
+  if(!renderAccuracy._c||(renderAccuracy._c.key!==_wfKey&&_nowWf-renderAccuracy._c.at>60000)){renderAccuracy._c={key:_wfKey,at:_nowWf,wf:walkForwardAccuracy(work||[])};}
+  const wf=renderAccuracy._c.wf;
+  // The visible accuracy counters are now the resettable LIVE record only.
+  // Walk-Forward is shown separately so reset really resets what the user sees.
+  for(let h=1;h<=3;h++){
+    const live=accuracy.stats[h], n=live.n, hit=live.hit, err=live.err;
+    const pct=n?Math.round(hit/n*100):0; const mae=n?err/n:0;
+    const a=$('acc'+h),m=$('mae'+h);
+    if(a){a.textContent=n?pct+'%':'—';a.className='value '+(pct>=60?'green':pct>=50?'yellow':'red')}
+    if(m)m.textContent=n?`MAE ${fmt(mae,2)} • ${n} اختبار`:'MAE — • لا توجد نتائج حية';
+  }
+  const total=[1,2,3].reduce((s,h)=>s+accuracy.stats[h].n,0);
+  $('accN').textContent=String(total);
+  const wfText=[1,2,3].map(h=>`+${h} ${wf[h].n?Math.round(wf[h].hit/wf[h].n*100):0}% (${wf[h].n} اختبار)`).join(' • ');
+  $('accuracySummary').innerHTML=total
+    ? `السجل الحي: ${total} مقارنة مكتملة. Walk-Forward منفصل وغير متأثر بإعادة الضبط: ${wfText}.`
+    : `السجل الحي فارغ بعد إعادة الضبط. Walk-Forward منفصل وغير متأثر بإعادة الضبط: ${wfText}.`;
+}
+
+let timingMemory={side:null,stage:'IDLE',trigger:null,band:0,brokenAt:0,retestSeen:false,retestAt:0,confirmedAt:0,extended:false,lastPx:null,lastAlertKey:'',closedBreak:false};
+function resetTiming(){timingMemory={side:null,stage:'IDLE',trigger:null,band:0,brokenAt:0,retestSeen:false,retestAt:0,confirmedAt:0,extended:false,lastPx:null,lastAlertKey:'',closedBreak:false};}
+function updateTiming(px,atr,side,trigger,flow,forecastScore,closedBreak=false,retestEvidence=false,confirmEvidence=false){
+  if(!Number.isFinite(px)||!Number.isFinite(trigger)||!Number.isFinite(atr)||atr<=0||!side)return {side,stage:'IDLE',trigger,band:0,reason:'لا يوجد Trigger صالح.',confirmedAt:0};
+  const band=Math.max(.35,atr*.18), breakBuf=Math.max(.25,atr*.08), confirmMove=Math.max(.35,atr*.12);
+  const now=Date.now(), maxRetestAge=Math.max(90000,intervalSeconds(state.tf)*1000*4);
+  if(timingMemory.side!==side || !Number.isFinite(timingMemory.trigger) || Math.abs(timingMemory.trigger-trigger)>atr*.65){
+    timingMemory={side,stage:'PRE-TRIGGER',trigger,band,brokenAt:0,retestSeen:false,retestAt:0,confirmedAt:0,extended:false,lastPx:px,lastAlertKey:'',closedBreak:false};
+  } else timingMemory.band=band;
+  const t=timingMemory.trigger,b=timingMemory.band;
+  timingMemory.closedBreak=!!closedBreak;
+  if(timingMemory.stage==='BREAK' && timingMemory.brokenAt>0 && now-timingMemory.brokenAt>maxRetestAge && !timingMemory.retestSeen){timingMemory.stage='MISSED';timingMemory.extended=true;}
+  if(side==='SELL'){
+    if(timingMemory.stage==='BREAK' && px<t-Math.max(atr*.65,1.2) && !timingMemory.retestSeen){timingMemory.stage='MISSED';timingMemory.extended=true;}
+    else if(timingMemory.stage==='PRE-TRIGGER' && closedBreak) {timingMemory.stage='BREAK';timingMemory.brokenAt=now;}
+    else if(timingMemory.stage==='BREAK' && retestEvidence && px>=t-b && px<=t+b){timingMemory.stage='RETEST';timingMemory.retestSeen=true;timingMemory.retestAt=now;}
+    else if(timingMemory.stage==='RETEST' && now-timingMemory.retestAt<=maxRetestAge && confirmEvidence && px<t-confirmMove && flow<-6 && forecastScore<-.12){timingMemory.stage='CONFIRMED ENTRY';timingMemory.confirmedAt=now;}
+  } else if(side==='BUY'){
+    if(timingMemory.stage==='BREAK' && px>t+Math.max(atr*.65,1.2) && !timingMemory.retestSeen){timingMemory.stage='MISSED';timingMemory.extended=true;}
+    else if(timingMemory.stage==='PRE-TRIGGER' && closedBreak) {timingMemory.stage='BREAK';timingMemory.brokenAt=now;}
+    else if(timingMemory.stage==='BREAK' && retestEvidence && px>=t-b && px<=t+b){timingMemory.stage='RETEST';timingMemory.retestSeen=true;timingMemory.retestAt=now;}
+    else if(timingMemory.stage==='RETEST' && now-timingMemory.retestAt<=maxRetestAge && confirmEvidence && px>t+confirmMove && flow>6 && forecastScore>.12){timingMemory.stage='CONFIRMED ENTRY';timingMemory.confirmedAt=now;}
+  }
+  timingMemory.lastPx=px;
+  const reason={PRE_TRIGGER:'تحول مبكر؛ ننتظر Break مغلقًا خلف Trigger.',BREAK:side==='SELL'?'Break مغلق مؤكد؛ ننتظر Retest موثقًا داخل المنطقة.':'Break مغلق مؤكد؛ ننتظر Retest موثقًا داخل المنطقة.',RETEST:'Retest تحقق؛ ننتظر استمرارًا حيًا مؤيدًا قبل الدخول.',CONFIRMED_ENTRY:'تم التأكيد بعد Break مغلق + Retest موثق + استمرار حي متوافق.',MISSED:'الحركة ابتعدت عن Trigger أو انتهت مهلة Retest؛ لا نطارد السعر.',IDLE:'لا يوجد Trigger صالح.'}[String(timingMemory.stage).replace(/[- ]/g,'_')]||'ننتظر التأكيد.';
+  return {side:timingMemory.side,stage:timingMemory.stage,trigger:t,band:b,reason,confirmedAt:timingMemory.confirmedAt,closedBreak:timingMemory.closedBreak,retestSeen:timingMemory.retestSeen};
+}
+const storageGet=(k,def='')=>{try{return localStorage.getItem(k)??def}catch(e){return def}};
+const storageSet=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
+let alertEnabled=storageGet('xau_alerts_enabled','0')==='1';
+let alertAudio=null;
+function updateNotifyUI(msg){
+  const b=$('notify'), s=$('notifyStatus');
+  if(!b||!s)return;
+  b.textContent=alertEnabled?'🔔 تنبيه الصفقات: مفعل — اضغط للإيقاف':'🔔 تفعيل تنبيه الصفقات + الأخبار';
+  s.textContent=msg || (alertEnabled?'التنبيه داخل التطبيق مفعل':'التنبيه غير مفعل');
+}
+async function unlockAlertAudio(){
+  try{
+    const AC=window.AudioContext||window.webkitAudioContext;
+    if(!AC)return false;
+    if(!alertAudio)alertAudio=new AC();
+    if(alertAudio.state==='suspended')await alertAudio.resume();
+    const o=alertAudio.createOscillator(),g=alertAudio.createGain();
+    g.gain.value=.0001;o.frequency.value=440;o.connect(g);g.connect(alertAudio.destination);o.start();o.stop(alertAudio.currentTime+.03);
+    return true;
+  }catch(e){return false;}
+}
+function playSignalSound(side){
+  try{
+    if(!alertAudio)return;
+    if(alertAudio.state==='suspended')return;
+    const now=alertAudio.currentTime;
+    [0,.18,.36].forEach((delay,i)=>{
+      const o=alertAudio.createOscillator(),g=alertAudio.createGain();
+      o.type='sine';o.frequency.value=side==='BUY'?880:520;g.gain.setValueAtTime(.0001,now+delay);g.gain.exponentialRampToValueAtTime(.08,now+delay+.02);g.gain.exponentialRampToValueAtTime(.0001,now+delay+.14);o.connect(g);g.connect(alertAudio.destination);o.start(now+delay);o.stop(now+delay+.15);
+    });
+  }catch(e){}
+}
+let _lastAlertKey='';
+function maybeNotifySignal(x){
+  if(!alertEnabled || !x || (x.decision!=='BUY'&&x.decision!=='SELL') || !x.plan)return;
+  const ce=(window.goldOF||{}).confirmedEntry;
+  const key=`${x.decision}|${x.entryType}|${x.signalAt||ce?.at||x.timing?.confirmedAt||0}`;
+  if(_lastAlertKey===key)return;
+  _lastAlertKey=key;
+  playSignalSound(x.decision);
+  try{if(navigator.vibrate)navigator.vibrate([180,100,180,100,350]);}catch(e){}
+  try{if('Notification' in window && Notification.permission==='granted')new Notification(`XAU/USD — ${x.decision}`,{body:`Entry ${fmt(x.plan.entry)} • TP1 ${fmt(x.plan.tp1)} • SL ${fmt(x.plan.sl)}`});}catch(e){}
+}
+async function testNotification(){
+  const was=alertEnabled;
+  if(!alertEnabled){alertEnabled=true;storageSet('xau_alerts_enabled','1');}
+  const ok=await unlockAlertAudio();
+  if(ok)playSignalSound('BUY');
+  try{if(navigator.vibrate)navigator.vibrate([180,100,180]);}catch(e){}
+  let msg=ok?'اختبار التنبيه: الصوت + الاهتزاز يعملان داخل الصفحة':'تعذر تشغيل الصوت من هذا المتصفح/WebView';
+  try{if('Notification' in window && Notification.permission==='granted')new Notification('XAU/USD — اختبار',{body:'هذا اختبار للتنبيه داخل التطبيق'});}
+  catch(e){}
+  updateNotifyUI(msg);
+  if(!was){alertEnabled=false;storageSet('xau_alerts_enabled','0');updateNotifyUI(msg+' • التنبيه الفعلي ما زال متوقفًا');}
+}
+async function requestSignalNotifications(){
+  alertEnabled=!alertEnabled;
+  storageSet('xau_alerts_enabled',alertEnabled?'1':'0');
+  if(alertEnabled){
+    await unlockAlertAudio();
+    let msg='التنبيه داخل التطبيق مفعل • صوت + اهتزاز عند تأكيد الصفقة والخبر القوي';
+    try{
+      if('Notification' in window){
+        if(Notification.permission==='default'){const p=await Notification.requestPermission();msg += p==='granted'?' • إشعارات النظام مفعلة':' • إشعار النظام غير مفعّل';}
+        else if(Notification.permission==='granted')msg +=' • إشعارات النظام مفعلة';
+        else msg +=' • اسمح بالإشعارات من إعدادات المتصفح إذا أردتها';
+      }else msg +=' • هذا المتصفح لا يدعم إشعارات النظام';
+    }catch(e){msg +=' • تعذر طلب إشعار النظام';}
+    updateNotifyUI(msg);
+  }else updateNotifyUI('التنبيه متوقف');
+}
+const $=id=>document.getElementById(id);
+updateNotifyUI();
+window.addEventListener('error',e=>{try{const s=$('status');if(s)s.textContent='خطأ JavaScript: '+(e.message||'غير معروف');}catch(_){}});
+window.addEventListener('unhandledrejection',e=>{try{const s=$('status');if(s)s.textContent='خطأ اتصال/تشغيل: '+(e.reason?.message||String(e.reason||'غير معروف'));}catch(_){}});
+const fmt=(x,d=2)=>Number.isFinite(x)?x.toFixed(d):'—';
+function mean(a){return a.length?a.reduce((x,y)=>x+y,0)/a.length:0}
+function ema(a,p){let k=2/(p+1),e=a[0]||0; for(let i=1;i<a.length;i++)e=a[i]*k+e*(1-k); return e}
+function atr(b,p=14){if(b.length<p+1)return 0;let tr=[];for(let i=1;i<b.length;i++)tr.push(Math.max(b[i].high-b[i].low,Math.abs(b[i].high-b[i-1].close),Math.abs(b[i].low-b[i-1].close)));return mean(tr.slice(-p))}
+function slope(a,n=8){if(a.length<n)return 0;let x=a.slice(-n),mx=(n-1)/2,my=mean(x),num=0,den=0;for(let i=0;i<n;i++){num+=(i-mx)*(x[i]-my);den+=(i-mx)**2}return den?num/den:0}
+function qflow(b){let den=0,num=0;for(const x of b.slice(-20)){let r=Math.max(x.high-x.low,1e-9);let body=(x.close-x.open)/r;let w=x.tickVolume||x.volume||1;num+=body*w;den+=w}return den?Math.max(-100,Math.min(100,100*num/den)):0}
+function preMoveReality(b,tick,ticks=[]){
+  const w=b.filter(x=>!x.isOpen).slice(-14); if(w.length<8)return{state:'INSUFFICIENT',dir:'NEUTRAL',score:0,confidence:0,reason:'نحتاج شموعًا مغلقة أكثر.'};
+  const A=atr(b,14)||mean(w.map(x=>x.high-x.low))||1, last=w.at(-1), prev=w.at(-2);
+  const ranges=w.map(x=>Math.max(x.high-x.low,1e-9)), avgR=mean(ranges.slice(0,-2))||A;
+  const recentR=mean(ranges.slice(-3)), compression=Math.max(0,Math.min(1,1-recentR/Math.max(avgR,1e-9)));
+  const clv=x=>((x.close-x.low)-((x.high-x.close)))/Math.max(x.high-x.low,1e-9);
+  const cls=w.slice(-5).map(clv), closePressure=mean(cls);
+  const bodies=w.slice(-5).map(x=>(x.close-x.open)/Math.max(x.high-x.low,1e-9));
+  const bodyPressure=mean(bodies);
+  const vols=w.map(x=>Number(x.tickVolume||x.volume||0));
+  const baseVol=mean(vols.slice(-10,-2))||1, volNow=mean(vols.slice(-2)), volSpike=Math.max(0,Math.min(1.5,volNow/baseVol-1));
+  const highs=w.slice(0,-1).map(x=>x.high), lows=w.slice(0,-1).map(x=>x.low);
+  const sweepUp=last.high>Math.max(...highs)&&last.close<last.high-(last.high-last.low)*.45;
+  const sweepDown=last.low<Math.min(...lows)&&last.close>last.low+(last.high-last.low)*.45;
+  const upperW=w.slice(-4).map(x=>wickInfo(x).upperPct), lowerW=w.slice(-4).map(x=>wickInfo(x).lowerPct);
+  const upperAbs=mean(upperW), lowerAbs=mean(lowerW);
+  const closes=w.map(x=>x.close), vel=slope(closes.slice(-6),6)/A;
+  const priorVel=slope(closes.slice(-12,-6),6)/A;
+  const accel=vel-priorVel;
+  let tickMove=0,tickAccel=0;
+  if(ticks.length>=4){const q=ticks.slice(-20).map(x=>Number(x.mid)).filter(Number.isFinite);if(q.length>=4){tickMove=(q.at(-1)-q[0])/A;const mid=Math.floor(q.length/2);tickAccel=((q.at(-1)-q[mid])-(q[mid-1]-q[0]))/A;}}
+  const liveUp=tickMove>.08, liveDown=tickMove<-.08;
+  const buyBuild=Math.max(0,Math.min(1,closePressure*.55+bodyPressure*.25+compression*.20+(volSpike>.25?.15:0)+(liveUp?.20:0)));
+  const sellBuild=Math.max(0,Math.min(1,-closePressure*.55-bodyPressure*.25+compression*.20+(volSpike>.25?.15:0)+(liveDown?.20:0)));
+  let dir='NEUTRAL',score=50,stateName='BALANCED',reason='الضغط غير حاسم.';
+  if(sweepDown&&buyBuild>.48){dir='UP';stateName='LIQUIDITY SWEEP → BUY PRESSURE';score=72+Math.round(buyBuild*18);reason='تم سحب قاع قريب ثم أُغلق السعر بعيدًا عن القاع مع بقاء ضغط شرائي.';}
+  else if(sweepUp&&sellBuild>.48){dir='DOWN';stateName='LIQUIDITY SWEEP → SELL PRESSURE';score=72+Math.round(sellBuild*18);reason='تم سحب قمة قريبة ثم أُغلق السعر بعيدًا عن القمة مع بقاء ضغط بيعي.';}
+  else if(compression>.35&&buyBuild>.55&&vel>=-0.05){dir='UP';stateName='PRESSURE BUILDING UP';score=65+Math.round(buyBuild*25);reason='انكماش في المدى مع إغلاق متكرر قرب الأعلى وضغط صاعد يتراكم قبل التوسع.';}
+  else if(compression>.35&&sellBuild>.55&&vel<=0.05){dir='DOWN';stateName='PRESSURE BUILDING DOWN';score=65+Math.round(sellBuild*25);reason='انكماش في المدى مع إغلاق متكرر قرب الأسفل وضغط هابط يتراكم قبل التوسع.';}
+  else if(upperAbs>.34&&closePressure<-.12&&volSpike>.15){dir='DOWN';stateName='ABSORPTION / SELL';score=68+Math.round(Math.min(.9,upperAbs)*20);reason='محاولات صعود متكررة تُرفض من الأعلى مع نشاط حجمي أعلى من المعتاد.';}
+  else if(lowerAbs>.34&&closePressure>.12&&volSpike>.15){dir='UP';stateName='ABSORPTION / BUY';score=68+Math.round(Math.min(.9,lowerAbs)*20);reason='محاولات هبوط متكررة تُرفض من الأسفل مع نشاط حجمي أعلى من المعتاد.';}
+  else if(Math.abs(tickAccel)>.12&&Math.sign(tickAccel)===Math.sign(vel)&&Math.abs(vel)>.05){dir=vel>0?'UP':'DOWN';stateName='LIVE PRESSURE SHIFT';score=63+Math.round(Math.min(1,Math.abs(tickAccel))*18);reason='تسارع السعر اللحظي بدأ يتوافق مع اتجاه الحركة بدل أن يكون مجرد تذبذب.';}
+  const confidence=Math.max(0,Math.min(99,Math.round(50+Math.abs(score-50)*.95)));
+  return{state:stateName,dir,score,confidence,reason,compression,closePressure,bodyPressure,volSpike,sweepUp,sweepDown,upperAbs,lowerAbs,velocity:vel,acceleration:accel,tickMove,tickAccel};
+}
+function priceBins(b){let lo=Math.min(...b.map(x=>x.low)),hi=Math.max(...b.map(x=>x.high));let bins=40,step=(hi-lo)/bins||.1,v=Array(bins).fill(0);for(const x of b){let p=(x.high+x.low+x.close)/3,idx=Math.max(0,Math.min(bins-1,Math.floor((p-lo)/step)));v[idx]+=x.tickVolume||x.volume||1}let poc=v.indexOf(Math.max(...v)),pocP=lo+(poc+.5)*step;let total=v.reduce((a,c)=>a+c,0),target=total*.70,order=[...v.keys()].sort((a,c)=>v[c]-v[a]),acc=0,sel=[];for(const i of order){if(acc>=target)break;acc+=v[i];sel.push(i)}let vaL=lo+Math.min(...sel)*step,vaH=lo+(Math.max(...sel)+1)*step;return{lo,hi,step,poc:pocP,val:vaL,vah:vaH}}
+function candleStructure(b,i){if(i<2)return '—';let x=b[i],p=b[i-1];if(x.high>p.high&&x.low>p.low)return '↑ HH/HL';if(x.high<p.high&&x.low<p.low)return '↓ LH/LL';return '• داخلية'}
+function wickInfo(x){let r=Math.max(x.high-x.low,1e-9),body=Math.abs(x.close-x.open),upper=x.high-Math.max(x.open,x.close),lower=Math.min(x.open,x.close)-x.low;return{r,body,upper,lower,upperPct:upper/r,lowerPct:lower/r,bodyPct:body/r}}
+function recentFlow(b,n=5){return qflow(b.slice(-n))}
+function flowDivergence(b){let c=b.map(x=>x.close),n=Math.min(6,c.length);if(n<6)return{bull:false,bear:false};let pc=c.at(-1)-c.at(-n),f1=qflow(b.slice(-n)),f2=qflow(b.slice(-Math.min(12,b.length),-n));return{bull:pc>0&&f1<f2-8,bear:pc<0&&f1>f2+8}}
+function momentumState(b){let c=b.map(x=>x.close),a=atr(b,14)||1;if(c.length<10)return{slow:false,accel:0};let s1=slope(c.slice(-5),5)/a,s2=slope(c.slice(-10,-5),5)/a;return{slow:(s1>0&&s2>0&&s1<s2*.55)||(s1<0&&s2<0&&s1>s2*.55),accel:s1-s2}}
+function rangeState(b,vp,A){let z=b.slice(-6);if(z.length<5)return{consolidating:false,above:false,below:false,range:0,baseLow:null,baseHigh:null,expansion:false};let highs=z.map(x=>x.high),lows=z.map(x=>x.low),range=Math.max(...highs)-Math.min(...lows);let bodies=z.map(x=>Math.abs(x.close-x.open));let avgBody=mean(bodies),avgRange=mean(z.map(x=>x.high-x.low));let small=range<=Math.max(A*1.35,.8)&&avgBody<=Math.max(A*.42,.25)&&avgRange<=Math.max(A*.75,.45);let last=z.at(-1);let above=last.close>vp.vah;let below=last.close<vp.val;let expansion=(last.high-last.low)>Math.max(avgRange*1.25,A*.75);return{consolidating:small,above,below,range,baseLow:Math.min(...lows),baseHigh:Math.max(...highs),expansion}}
+function rejectionAt(b,level,side){let z=b.at(-1);if(!z)return false;let w=wickInfo(z);if(side==='upper')return z.high>=level&&w.upperPct>=.38&&z.close<level+w.r*.15;return z.low<=level&&w.lowerPct>=.38&&z.close>level-w.r*.15}
+function immediateStructure(b,A){
+  if(b.length<5)return {bull:false,bear:false,level:null,score:0,reason:'بيانات قصيرة'};
+  let z=b.slice(-5), a=A||atr(b,14)||1, c=z.map(x=>x.close);
+  let h=z.map(x=>x.high), l=z.map(x=>x.low);
+  let bearSeq=h[2]<h[1]&&h[3]<=h[2]&&l[2]<l[1]&&l[3]<=l[2];
+  let bullSeq=l[2]>l[1]&&l[3]>=l[2]&&h[2]>h[1]&&h[3]>=h[2];
+  let priorLow=Math.min(l[0],l[1],l[2]), priorHigh=Math.max(h[0],h[1],h[2]);
+  let breakBear=z[4].close<priorLow || (z[3].close<priorLow&&z[4].close<=z[3].close);
+  let breakBull=z[4].close>priorHigh || (z[3].close>priorHigh&&z[4].close>=z[3].close);
+  let body4=wickInfo(z[4]), body3=wickInfo(z[3]);
+  let displacementBear=z[4].close<z[4].open&&body4.bodyPct>=.55&&(z[4].high-z[4].low)>=a*.75;
+  let displacementBull=z[4].close>z[4].open&&body4.bodyPct>=.55&&(z[4].high-z[4].low)>=a*.75;
+  let last3=c[4]-c[2], last2=c[4]-c[3];
+  let accelBear=last3<-a*.45&&last2<0, accelBull=last3>a*.45&&last2>0;
+  let bear=breakBear||((bearSeq||accelBear)&&z[4].close<z[4].open);
+  let bull=breakBull||((bullSeq||accelBull)&&z[4].close>z[4].open);
+  let score=bear?(breakBear?2:1)+(displacementBear?1:0)+(accelBear?1:0):bull?(breakBull?2:1)+(displacementBull?1:0)+(accelBull?1:0):0;
+  return {bull:bull&&!bear,bear:bear&&!bull,level:bear?priorLow:bull?priorHigh:null,score,displacementBear,displacementBull,reason:bear?'LH/LL أو كسر Swing هابط':bull?'HH/HL أو كسر Swing صاعد':'لا تحول لحظي مؤكد'};
+}
+function forecast(b,cfg,h){
+  const c=b.map(x=>Number(x.close)), last=c.at(-1), A=atr(b,14)||1;
+  if(c.length<20)return{dir:'NEUTRAL',score:0,price:last,move:0,confidence:0,regime:'INSUFFICIENT'};
+  const e8=ema(c,8),e20=ema(c,20),e50=ema(c,50),fl=qflow(b)/100;
+  const sl=slope(c,Math.min(12,c.length))/A;
+  const mom6=(last-c.at(-7))/A, mom3=(last-c.at(-4))/A;
+  const lc=b.at(-1), prev=b.at(-2)||lc, w=wickInfo(lc);
+  const range=Math.max(lc.high-lc.low,1e-9), body=(lc.close-lc.open)/range;
+  const prevRange=Math.max(prev.high-prev.low,1e-9);
+  const rangeExp=Math.max(.45,Math.min(2.2,range/Math.max(prevRange,A*.55)));
+  const trend20=(e20-e50)/A, shortTrend=(e8-e20)/A;
+  const vp=priceBins(b), vpSpan=Math.max(vp.vah-vp.val,A), vpPos=Math.max(-1,Math.min(1,(last-vp.poc)/vpSpan));
+  const closePos=((last-lc.low)/range)*2-1;
+  const seq5=c.slice(-5).map((v,i)=>i?Math.sign(v-c[c.length-5+i-1]):0).reduce((a,v)=>a+v,0)/4;
+  const slopeN=Math.tanh(sl*.75), momN=Math.tanh(mom6*.58), mom3N=Math.tanh(mom3*.72);
+  const trendN=Math.tanh(trend20*.72), shortN=Math.tanh(shortTrend*.72), flowN=Math.max(-1,Math.min(1,fl));
+  const bodyN=Math.max(-1,Math.min(1,body));
+  const seqN=Math.max(-1,Math.min(1,seq5));
+  const valueN=Math.max(-1,Math.min(1,-vpPos*.34));
+  const closeN=Math.max(-1,Math.min(1,closePos*.22));
+  const rejection=(w.lowerPct>.45?0.24:0)+(w.upperPct>.45?-0.24:0);
+  const expansionDir=Math.sign(bodyN||mom3N||shortN||trendN||seqN||1);
+  const expansion=(rangeExp>1.18?0.09*expansionDir:rangeExp<.70?-0.04*expansionDir:0);
+  const rawBase=slopeN*.13+momN*.20+mom3N*.12+trendN*.15+shortN*.11+flowN*.12+bodyN*.08+seqN*.08+valueN*.06+closeN*.04+rejection+expansion;
+  let regime='BALANCED'; const disagreement=Math.abs(shortN-trendN);
+  if(Math.abs(trendN)>.28 && Math.sign(shortN||trendN)===Math.sign(trendN))regime='TRENDING';
+  else if(disagreement>.75)regime='TRANSITION';
+  else if(rangeExp<.72 && Math.abs(rawBase)<.45)regime='COMPRESSION';
+  else if(rangeExp>1.25 && Math.abs(rawBase)>.30)regime='EXPANSION';
+  let raw=rawBase;
+  if(regime==='TRANSITION')raw*=.78;
+  if(regime==='COMPRESSION')raw*=.72;
+  if(regime==='TRENDING' && Math.sign(raw)===Math.sign(trendN))raw*=1.08;
+  raw*=h===1?1:h===2?.88:.76;
+  const threshold=h===1?.14:h===2?.18:.22;
+  const dir=raw>threshold?'BULLISH':raw<-threshold?'BEARISH':'NEUTRAL';
+  const features=[slopeN,momN,mom3N,trendN,shortN,flowN,bodyN,seqN,valueN];
+  const mean=features.reduce((a,v)=>a+v,0)/features.length;
+  const variance=features.reduce((a,v)=>a+Math.pow(v-mean,2),0)/features.length;
+  const agreement=Math.max(0,1-Math.sqrt(variance));
+  const strength=Math.min(1,Math.abs(rawBase)*1.65);
+  let confidence=47+strength*35+agreement*13-(h-1)*6;
+  if(regime==='TRANSITION')confidence-=9; if(regime==='COMPRESSION')confidence-=7; if(dir==='NEUTRAL')confidence-=12;
+  if(Math.abs(bodyN)>.55 && Math.sign(bodyN)===Math.sign(rawBase))confidence+=3;
+  confidence=Math.max(18,Math.min(90,confidence));
+  const directional=Math.max(.18,Math.min(1,Math.abs(raw)*1.35));
+  const mult=h===1?.44:h===2?.58:.70; let move=A*(mult*(.70+directional*.58));
+  if(dir==='NEUTRAL')move=A*mult*.34;
+  const signed=dir==='BULLISH'?1:dir==='BEARISH'?-1:0;
+  return{dir,score:raw,price:last+signed*move,move,confidence,regime,components:{slope:slopeN,momentum:momN,momentum3:mom3N,trend:trendN,shortTrend:shortN,flow:flowN,body:bodyN,sequence:seqN,vp:valueN,rejection,rangeExpansion:rangeExp,agreement}};
+}
+function parseSourceTime(v){
+  if(v==null) return null;
+  if(typeof v==='number') return new Date(v<1e12?v*1000:v);
+  let s=String(v).trim();
+  if(/^\d+$/.test(s)){let n=Number(s);return new Date(n<1e12?n*1000:n)}
+  // Some feeds omit timezone. Treat feed timestamps as UTC, then render in device local time.
+  if(/T|\s/.test(s) && !/[zZ]|[+-]\d\d:?\d\d$/.test(s)) s=s.replace(' ','T')+'Z';
+  return new Date(s);
+}
+function localTime(v){let d=parseSourceTime(v);return d&&!isNaN(d)?d.toLocaleTimeString('ar-DZ',{timeZone:'Africa/Algiers',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}):'—'}
+function forecastForState(f,marketState){
+  if(marketState==='VALUE BALANCE' || marketState==='CONSOLIDATION'){
+    return {...f,dir:Math.abs(f.score)<.55?'NEUTRAL':(f.score>0?'BULLISH SCENARIO':'BEARISH SCENARIO'),price:f.price};
+  }
+  if(marketState==='BREAKOUT CONSOLIDATION' || marketState==='BREAKDOWN CONSOLIDATION'){
+    return {...f,dir:Math.abs(f.score)<.70?'NEUTRAL':(f.score>0?'BULLISH SCENARIO':'BEARISH SCENARIO')};
+  }
+  return f;
+}
+function intervalSeconds(tf){return ({'1m':60,'3m':180,'5m':300,'15m':900,'30m':1800,'1h':3600,'4h':14400,'1d':86400,'1w':604800}[tf]||60)}
+function barTimeMs(z){return parseSourceTime(z?.openTime ?? z?.timestamp ?? z?.time)?.getTime()||NaN}
+function sortBarsNewestLast(b){return b.slice().sort((a,c)=>(barTimeMs(a)||0)-(barTimeMs(c)||0))}
+function feedLagSeconds(b,tf){if(!b?.length)return Infinity;let t=barTimeMs(b.at(-1));return Number.isFinite(t)?Math.max(0,(Date.now()-t)/1000):Infinity}
+function aggregateTicks(ticks,tf){
+  const sec=intervalSeconds(tf), map=new Map();
+  for(const q of (ticks||[])){
+    const ts=parseSourceTime(q?.timestamp ?? q?.time)?.getTime(); const p=Number(q?.mid ?? q?.price);
+    if(!Number.isFinite(ts)||!Number.isFinite(p))continue;
+    const bucket=Math.floor(ts/(sec*1000))*sec*1000, k=String(bucket);
+    let z=map.get(k); if(!z) z={openTime:new Date(bucket).toISOString(),open:p,high:p,low:p,close:p,volume:0,tickVolume:0,isOpen:true};
+    z.high=Math.max(z.high,p); z.low=Math.min(z.low,p); z.close=p; z.tickVolume++;
+    map.set(k,z);
+  }
+  const arr=[...map.values()].sort((a,b)=>barTimeMs(a)-barTimeMs(b));
+  const now=Date.now();
+  for(const z of arr) z.isOpen=(now-barTimeMs(z))<sec*1000+1500;
+  return arr;
+}
+function mergeRecentBars(base,tickBars,tf){
+  const m=new Map(); for(const z of (base||[]))m.set(String(Math.floor(barTimeMs(z)/(intervalSeconds(tf)*1000))),z);
+  for(const z of (tickBars||[]))m.set(String(Math.floor(barTimeMs(z)/(intervalSeconds(tf)*1000))),z);
+  return [...m.values()].sort((a,b)=>barTimeMs(a)-barTimeMs(b));
+}
+function timingQuality(side,stage,flow,forecastScore,forecastConfidence,atrValue,px,trigger,band,exhaust,failed,closedBreak=false){
+  if(!side||!Number.isFinite(trigger)||!Number.isFinite(px))return 0;
+  let q=20;
+  if(stage==='BREAK')q+=18;
+  if(stage==='RETEST')q+=22;
+  if(stage==='CONFIRMED ENTRY')q+=30;
+  if(stage==='MISSED')q-=20;
+  if(!closedBreak && stage!=='IDLE')q-=12;
+  if(side==='BUY'){if(flow>8)q+=8;if(forecastScore>.15)q+=8;}else{if(flow<-8)q+=8;if(forecastScore<-.15)q+=8;}
+  q+=Math.min(12,Math.max(0,(forecastConfidence-50)*.18));
+  if(exhaust||failed)q-=20;
+  return Math.max(0,Math.min(100,Math.round(q)));
+}
+function breakRetestEvidence(work,lc,px,A,vp,flow,forecastScore,side,trigger){
+  const bnd=Math.max(.30,A*.20), confirm=Math.max(.35,A*.12);
+  const recent=work.slice(-5);
+  const breakCandle=z=>{const wi=wickInfo(z||{}),range=Math.max((z?.high??0)-(z?.low??0),1e-9),body=Math.abs((z?.close??0)-(z?.open??0))/range;return {wi,body};};
+  const bullBreakBars=recent.map((z,i)=>({z,q:breakCandle(z)})).filter(o=>o.z.close>trigger+A*.08&&o.q.body>=.35&&o.z.close>o.z.open);
+  const bearBreakBars=recent.map((z,i)=>({z,q:breakCandle(z)})).filter(o=>o.z.close<trigger-A*.08&&o.q.body>=.35&&o.z.close<o.z.open);
+  const bullBreakClosed=bullBreakBars.length>0, bearBreakClosed=bearBreakBars.length>0;
+  const bullRetest=side==='BUY' && px>=trigger-bnd && px<=trigger+bnd && lc.low<=trigger+bnd && lc.close>=lc.open && flow>4 && forecastScore>.08;
+  const bearRetest=side==='SELL' && px>=trigger-bnd && px<=trigger+bnd && lc.high>=trigger-bnd && lc.close<=lc.open && flow<-4 && forecastScore<-.08;
+  const bullConfirm=side==='BUY' && px>trigger+confirm && flow>6 && forecastScore>.12;
+  const bearConfirm=side==='SELL' && px<trigger-confirm && flow<-6 && forecastScore<-.12;
+  return{bullBreakClosed,bearBreakClosed,bullRetest,bearRetest,bullConfirm,bearConfirm,band:bnd,confirm,breakAt:bullBreakBars.at(-1)?.z?.openTime||bearBreakBars.at(-1)?.z?.openTime||null};
+}
+
+const MACRO_EVENTS=[
+  {d:'2026-10-02T08:30:00-04:00',name:'🇺🇸 Employment Situation / NFP',src:'BLS',impact:'HIGH'},
+  {d:'2026-10-07T14:00:00-04:00',name:'🇺🇸 FOMC Minutes',src:'Federal Reserve',impact:'HIGH'},
+  {d:'2026-10-14T08:30:00-04:00',name:'🇺🇸 CPI',src:'BLS',impact:'HIGH'},
+  {d:'2026-10-15T08:30:00-04:00',name:'🇺🇸 PPI',src:'BLS',impact:'HIGH'},
+  {d:'2026-10-15T08:30:00-04:00',name:'🇺🇸 Retail Sales',src:'U.S. Census Bureau',impact:'MED'},
+  {d:'2026-10-28T14:00:00-04:00',name:'🇺🇸 FOMC — قرار الفائدة / بيان',src:'Federal Reserve',impact:'HIGH'},
+  {d:'2026-10-29T14:15:00+01:00',name:'🇪🇺 ECB — قرار الفائدة',src:'ECB',impact:'MED'},
+  {d:'2026-10-29T08:30:00-04:00',name:'🇺🇸 GDP Advance + Personal Income/Outlays',src:'BEA',impact:'HIGH'},
+  {d:'2026-11-05T12:00:00+00:00',name:'🇬🇧 BoE MPC — قرار الفائدة',src:'Bank of England',impact:'MED'},
+  {d:'2026-11-06T08:30:00-05:00',name:'🇺🇸 Employment Situation / NFP',src:'BLS',impact:'HIGH'},
+  {d:'2026-11-10T08:30:00-05:00',name:'🇺🇸 CPI',src:'BLS',impact:'HIGH'},
+  {d:'2026-11-13T08:30:00-05:00',name:'🇺🇸 PPI',src:'BLS',impact:'HIGH'},
+  {d:'2026-11-17T08:30:00-05:00',name:'🇺🇸 Retail Sales',src:'U.S. Census Bureau',impact:'MED'},
+  {d:'2026-11-25T08:30:00-05:00',name:'🇺🇸 Personal Income/Outlays — PCE',src:'BEA',impact:'HIGH'},
+  {d:'2026-12-04T08:30:00-05:00',name:'🇺🇸 Employment Situation / NFP',src:'BLS',impact:'HIGH'},
+  {d:'2026-12-09T14:00:00-05:00',name:'🇺🇸 FOMC — قرار الفائدة / بيان',src:'Federal Reserve',impact:'HIGH'},
+  {d:'2026-12-15T08:30:00-05:00',name:'🇺🇸 PPI',src:'BLS',impact:'HIGH'},
+  {d:'2026-12-10T08:30:00-05:00',name:'🇺🇸 CPI',src:'BLS',impact:'HIGH'},
+  {d:'2026-12-16T08:30:00-05:00',name:'🇺🇸 Retail Sales',src:'U.S. Census Bureau',impact:'MED'},
+  {d:'2026-12-17T14:15:00+01:00',name:'🇪🇺 ECB — قرار الفائدة',src:'ECB',impact:'MED'},
+  {d:'2026-12-23T08:30:00-05:00',name:'🇺🇸 Personal Income/Outlays — PCE',src:'BEA',impact:'HIGH'}
+];
+function localDateTime(iso){try{return new Intl.DateTimeFormat('ar-DZ',{timeZone:'Africa/Algiers',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}).format(new Date(iso));}catch(e){return iso}}
+function localDateKey(d=new Date()){try{return new Intl.DateTimeFormat('en-CA',{timeZone:'Africa/Algiers',year:'numeric',month:'2-digit',day:'2-digit'}).format(d)}catch(e){return d.toISOString().slice(0,10)}}
+function formatCountdown(ms){if(ms<=0)return 'الخبر الآن';let s=Math.floor(ms/1000),d=Math.floor(s/86400);s%=86400;let h=Math.floor(s/3600);s%=3600;let m=Math.floor(s/60);s%=60;if(d)return `${d} يوم ${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`}
+function macroNewsState(){
+  const now=Date.now(), horizon=1000*60*60*24*45;
+  const all=MACRO_EVENTS.map(e=>({...e,t:new Date(e.d).getTime()})).sort((a,b)=>a.t-b.t);
+  const future=all.filter(e=>e.t>=now-1000*60*60&&e.t<=now+horizon);
+  const next=future.find(e=>e.t>=now-1000*60*2)||future[0]||null;
+  const near=future.filter(e=>e.t>=now&&e.t<=now+1000*60*90);
+  const today=all.filter(e=>localDateKey(new Date(e.t))===localDateKey(new Date()));
+  const active=all.filter(e=>now>=e.t&&now<e.t+1000*60*5).sort((a,b)=>b.t-a.t)[0]||null;
+  return {next,near,future,today,active,all};
+}
+function currentMarketBias(){
+  const x=state.calc;if(!x)return {dir:'NEUTRAL',label:'محايد',reason:'لا توجد قراءة سوق كافية بعد.'};
+  const up=(x.structure==='BULLISH'||x.marketState==='EARLY BULLISH SHIFT'||x.marketState==='LIVE BULLISH SHIFT'?1:0)+(x.flow>8?1:0)+(x.f?.[0]?.score>.08?1:0);
+  const dn=(x.structure==='BEARISH'||x.marketState==='EARLY BEARISH SHIFT'||x.marketState==='LIVE BEARISH SHIFT'?1:0)+(x.flow<-8?1:0)+(x.f?.[0]?.score<-.08?1:0);
+  if(up>=2&&up>dn)return {dir:'UP',label:'🟢 ميل صعودي',reason:'البنية/التدفق/التنبؤ اللحظي يميل للصعود'};
+  if(dn>=2&&dn>up)return {dir:'DOWN',label:'🔴 ميل هبوطي',reason:'البنية/التدفق/التنبؤ اللحظي يميل للهبوط'};
+  return {dir:'NEUTRAL',label:'🟡 ميل محايد',reason:'الإشارات متعارضة أو غير كافية'};
+}
+function notifyMacroEvent(e,ms){
+  const key=`macroAlert:${e.d}`;
+  if(localStorage.getItem(key))return;
+  try{if(alertEnabled){playSignalSound('BUY');if(navigator.vibrate)navigator.vibrate([220,100,220,100,320]);}}catch(_){ }
+  try{if('Notification' in window && Notification.permission==='granted')new Notification(`🚨 خبر اقتصادي الآن — ${e.name}`,{body:'تم الوصول إلى وقت الإصدار. راقب السيولة والتذبذب ولا تطارد أول شمعة.'});}catch(_){ }
+  try{localStorage.setItem(key,String(Date.now()))}catch(_){ }
+}
+
+function nearestBarPrice(ms, direction='nearest', windowMs=15*60*1000){
+  const arr=(state.bars||[]).filter(z=>Number.isFinite(barTimeMs(z))&&Number.isFinite(z.close));
+  if(!arr.length)return null;
+  let best=null,bestD=Infinity;
+  for(const z of arr){const t=barTimeMs(z),d=t-ms;if(direction==='before'&&d>0)continue;if(direction==='after'&&d<0)continue;const ad=Math.abs(d);if(ad<=windowMs&&ad<bestD){best=z;bestD=ad;}}
+  return best;
+}
+function priceForOffset(eventMs, offsetMs){
+  const z=nearestBarPrice(eventMs+offsetMs,'nearest',Math.max(2*intervalSeconds(state.tf)*1000,120000));
+  return z?.close??null;
+}
+function pctChange(a,b){return Number.isFinite(a)&&Number.isFinite(b)&&a!==0?(b-a)/a*100:null}
+function renderLiveReaction(){
+  const evEl=$('liveReactionEvent'),moveEl=$('liveReactionMove'),txtEl=$('liveReactionText'),nowEl=$('reactionNow'),baseEl=$('reactionBase'),delEl=$('reactionDelta'),pctEl=$('reactionPct'),r1=$('reaction1m'),r5=$('reaction5m'),r15=$('reaction15m'),status=$('reactionStatus');
+  if(!evEl||!moveEl)return;
+  const now=Date.now(), m=macroNewsState(), x=state.calc, px=Number(x?.px??state.tick?.mid??state.tick?.price);
+  const event=(m.active||m.all.filter(e=>e.t<=now&&now-e.t<=24*60*60*1000).sort((a,b)=>b.t-a.t)[0]||m.next);
+  if(!event||!Number.isFinite(px)){evEl.textContent='لا توجد بيانات كافية لعرض حركة الخبر.';return;}
+  const diff=now-event.t;
+  if(diff<0){
+    evEl.innerHTML=`🟢 <b>${event.name}</b> • ${event.src} • يبدأ بعد <b>${formatCountdown(-diff)}</b> • ${localDateTime(event.d)}`;
+    moveEl.className='liveMove flat';moveEl.textContent=`السعر الآن ${fmt(px,2)}`;
+    txtEl.textContent='عند صدور الخبر سيبدأ القياس من سعر ما قبل الخبر ويعرض الصعود/الهبوط مباشرة.';
+    nowEl.textContent=fmt(px,2);baseEl.textContent='—';delEl.textContent='—';pctEl.textContent='—';r1.textContent='—';r5.textContent='—';r15.textContent='—';
+    status.className='decision watch';status.innerHTML='⏱️ <b>لم يصدر الخبر بعد.</b> نراقب السعر الآن وسنقيس الحركة عند لحظة الإصدار.';return;
+  }
+  const baseBar=nearestBarPrice(event.t,'before',10*60*1000); const base=baseBar?.close??priceForOffset(event.t,0)??px;
+  const delta=px-base, pct=pctChange(base,px), dir=Math.abs(delta)<0.03?'flat':delta>0?'up':'down';
+  evEl.innerHTML=`${event.impact==='HIGH'?'🔴':'🟡'} <b>${event.name}</b> • صدر ${formatCountdown(diff)} مضت • ${localDateTime(event.d)}`;
+  moveEl.className=`liveMove ${dir}`;moveEl.textContent=dir==='up'?`▲ الذهب يرتفع +${fmt(Math.abs(delta),2)}`:dir==='down'?`▼ الذهب يهبط -${fmt(Math.abs(delta),2)}`:'➖ الذهب شبه ثابت';
+  txtEl.textContent=`من ${fmt(base,2)} قبل الخبر إلى ${fmt(px,2)} الآن${pct!=null?' • '+(pct>=0?'+':'')+pct.toFixed(3)+'%':''}`;
+  nowEl.textContent=fmt(px,2);baseEl.textContent=fmt(base,2);delEl.textContent=(delta>=0?'+':'')+fmt(delta,2);pctEl.textContent=pct==null?'—':(pct>=0?'+':'')+pct.toFixed(3)+'%';
+  const p1=priceForOffset(event.t,60*1000),p5=priceForOffset(event.t,5*60*1000),p15=priceForOffset(event.t,15*60*1000);
+  r1.textContent=p1==null?'—':(p1-base>=0?'+':'')+fmt(p1-base,2);
+  r5.textContent=p5==null?'—':(p5-base>=0?'+':'')+fmt(p5-base,2);
+  r15.textContent=p15==null?'—':(p15-base>=0?'+':'')+fmt(p15-base,2);
+  status.className=`decision ${dir==='up'?'buy':dir==='down'?'sell':'watch'}`;
+  status.innerHTML=dir==='up'?`🟢 <b>رد فعل صعودي للذهب منذ الخبر.</b> الحركة الحالية +${fmt(Math.abs(delta),2)}.`:dir==='down'?`🔴 <b>رد فعل هبوطي للذهب منذ الخبر.</b> الحركة الحالية -${fmt(Math.abs(delta),2)}.`:'🟡 <b>لا توجد حركة صافية كبيرة حتى الآن.</b>';
+}
+function renderMacroNews(){
+  const el=$('macroNewsList'),risk=$('newsRisk'),cd=$('liveNewsCountdown'),todayEl=$('todayNews'),dirEl=$('newsDirectionWarning'); if(!el||!risk)return;
+  const m=macroNewsState(), now=Date.now(), bias=currentMarketBias();
+  renderLiveReaction();
+  if(m.active){
+    notifyMacroEvent(m.active,0);
+    risk.className='decision sell';
+    risk.innerHTML=`🚨 <b>الخبر يصدر الآن</b><div class="small">${m.active.name} • ${m.active.src} • ${localDateTime(m.active.d)}</div>`;
+    cd.className='decision sell'; cd.innerHTML=`💥 <b>نافذة انفجار/سيولة قوية</b><div class="small">الخبر الآن — أول دقائق قد تكون شديدة التذبذب. الميل الفني الحالي: ${bias.label}</div>`;
+  }else if(m.next){
+    const diff=m.next.t-now, mins=diff/60000;
+    const level=mins<=15?'sell':mins<=60?'watch':'decision';
+    risk.className=`decision ${level==='sell'?'sell':level==='watch'?'watch':''}`;
+    risk.innerHTML=mins<=15?`🚨 <b>تحذير قريب جدًا من الخبر</b><div class="small">${m.next.name} • ${localDateTime(m.next.d)} بتوقيت الجزائر</div>`:mins<=60?`⚠️ <b>خبر مؤثر خلال ساعة</b><div class="small">${m.next.name} • ${localDateTime(m.next.d)} بتوقيت الجزائر</div>`:`🟢 <b>الخبر القادم</b><div class="small">${m.next.name} • ${localDateTime(m.next.d)} بتوقيت الجزائر</div>`;
+    cd.className=`decision ${mins<=15?'sell':mins<=60?'watch':''}`;
+    cd.innerHTML=`⏱️ <b>العد التنازلي: ${formatCountdown(diff)}</b><div class="small">${m.next.name} • المصدر: ${m.next.src}</div>`;
+  }else{risk.className='decision';risk.innerHTML='🟢 لا يوجد حدث مدمج قريب ضمن النافذة الحالية.';cd.className='decision';cd.innerHTML='⏱️ لا يوجد خبر قادم في التقويم المدمج.'}
+  const todayRows=m.today.length?m.today.map(e=>{const ms=e.t-now, state=ms>0?`بعد ${formatCountdown(ms)}`:ms>-1000*60*5?'يصدر الآن':`صدر ${formatCountdown(-ms)} مضت`;return `<div class="newsItem ${e.impact==='HIGH'?'high':'med'}"><div class="row"><b>${e.name}</b><span class="tag">${e.impact==='HIGH'?'🔴 HIGH':'🟡 MED'}</span></div><div class="small">${e.src} • ${localDateTime(e.d)} • ${state}</div></div>`}).join(''):'لا يوجد خبر مدمج في هذا اليوم.';
+  todayEl.innerHTML=`<b>📅 أخبار اليوم (${localDateKey(new Date())})</b>${todayRows}`;
+  const list=m.future.slice(0,10);
+  el.innerHTML=list.length?`<b>القادم</b>`+list.map(e=>{const mins=Math.round((e.t-now)/60000);let when=mins<0?'صدر الآن':mins<60?`بعد ${mins} د`:mins<1440?`بعد ${Math.round(mins/60)} س`:`بعد ${Math.round(mins/1440)} يوم`;return `<div class="newsItem ${e.impact==='HIGH'?'high':'med'}"><div class="row"><b>${e.name}</b><span class="tag">${e.impact==='HIGH'?'🔴 HIGH':'🟡 MED'}</span></div><div class="small">${e.src} • ${localDateTime(e.d)} • ${when}</div></div>`}).join(''):'لا توجد أحداث مدمجة قريبة.';
+  const isDanger=m.active|| (m.next && m.next.t-now<=1000*60*15);
+  dirEl.className=`decision ${isDanger?(bias.dir==='UP'?'buy':bias.dir==='DOWN'?'sell':'watch'):''}`;
+  dirEl.innerHTML=isDanger?`⚠️ <b>تحذير سيولة/انفجار محتمل قرب الخبر</b><div class="small">الميل الفني الحالي: <b>${bias.label}</b> — ${bias.reason}. هذا ليس توقعًا مضمونًا لاتجاه الخبر.</div>`:`📊 <b>ميل السوق الحالي قبل الأخبار:</b> ${bias.label}<div class="small">${bias.reason}</div>`;
+}
+function institutionalLiquidity(b,vp,A,px){
+  if(!b||b.length<10)return {zones:[],summary:'بيانات غير كافية.'};
+  const n=Math.min(100,b.length), w=b.slice(-n), tol=Math.max(.18,A*.22);
+  const raw=[];
+  const add=(price,type,weight,why)=>{if(!Number.isFinite(price))return;raw.push({price,type,weight,why})};
+  add(vp.poc,'HVN / POC',7,'أعلى عقدة حجم تقريبية');
+  add(vp.vah,'VAH',5,'حافة قيمة علوية');
+  add(vp.val,'VAL',5,'حافة قيمة سفلية');
+
+  // Local swing points: only one record per actual swing, not every candle pair.
+  const swingHighs=[], swingLows=[];
+  for(let i=2;i<w.length-2;i++){
+    const z=w[i];
+    if(z.high>=w[i-1].high&&z.high>=w[i-2].high&&z.high>=w[i+1].high&&z.high>=w[i+2].high){
+      swingHighs.push({price:z.high,index:i});
+      add(z.high,'Swing High',3,'قمة محلية قد تتجمع فوقها السيولة');
+    }
+    if(z.low<=w[i-1].low&&z.low<=w[i-2].low&&z.low<=w[i+1].low&&z.low<=w[i+2].low){
+      swingLows.push({price:z.low,index:i});
+      add(z.low,'Swing Low',3,'قاع محلي قد تتجمع تحته السيولة');
+    }
+  }
+
+  // Equal highs/lows are clustered once. The previous version compared every
+  // candle with every other candle, creating thousands of duplicate labels.
+  const clusterLevels=(items,type,weight,why)=>{
+    const sorted=[...items].sort((a,b)=>a.price-b.price);
+    const clusters=[];
+    for(const item of sorted){
+      let c=clusters.find(q=>Math.abs(q.center-item.price)<=tol);
+      if(!c){c={prices:[item.price],center:item.price};clusters.push(c)}
+      else{c.prices.push(item.price);c.center=c.prices.reduce((a,v)=>a+v,0)/c.prices.length}
+    }
+    for(const c of clusters){
+      if(c.prices.length>=2){
+        const strength=Math.min(7,4+(c.prices.length-2)*.75);
+        add(c.center,type,strength,why+` (${c.prices.length} نقاط متقاربة)`);
+      }
+    }
+  };
+  clusterLevels(swingHighs,'Equal Highs',4,'قمم متقاربة — سيولة محتملة فوقها');
+  clusterLevels(swingLows,'Equal Lows',4,'قيعان متقاربة — سيولة محتملة تحتها');
+
+  const zones=[];
+  for(const r of raw){
+    let z=zones.find(q=>Math.abs(q.price-r.price)<=tol);
+    if(!z){
+      zones.push({price:r.price,score:r.weight,types:[r.type],why:[r.why]});
+    }else{
+      z.price=(z.price+r.price)/2;
+      z.score+=r.weight;
+      if(!z.types.includes(r.type))z.types.push(r.type);
+      if(!z.why.includes(r.why))z.why.push(r.why);
+    }
+  }
+  for(const z of zones){
+    const below=z.price<px;
+    z.side=below?'دعم/سيولة أسفل السعر':'مقاومة/سيولة فوق السعر';
+    z.distance=Math.abs(z.price-px);
+    z.score=Math.min(20,z.score+Math.max(0,3-z.distance/Math.max(A,.01)));
+    z.types=z.types.slice(0,4);
+    z.why=z.why.slice(0,2).join(' • ');
+  }
+  zones.sort((a,b)=>b.score-a.score);
+  const top=zones.slice(0,6);
+  return {
+    zones:top,
+    summary:top.length
+      ? `أقوى مناطق السيولة الاستدلالية: ${top.slice(0,3).map(z=>fmt(z.price)).join(' • ')} • السعر الحالي ${fmt(px)} • ATR ${fmt(A,2)}`
+      : 'لا توجد مناطق سيولة كافية.'
+  };
+}
+
+function marketPlan(b,vp,A,px,decision,liquidity){
+  if(!Number.isFinite(px)||!Number.isFinite(A)||A<=0||!decision||!['BUY','SELL'].includes(decision)) return null;
+  const zones=(liquidity?.zones||[]).filter(z=>Number.isFinite(z.price));
+  const minGap=Math.max(A*.32,.35);
+  const side=decision==='BUY'?1:-1;
+  const directional=zones.filter(z=>side>0?z.price>px+minGap:z.price<px-minGap);
+  directional.sort((a,b)=>side>0?a.price-b.price:b.price-a.price);
+  const chosen=[];
+  for(const z of directional){
+    if(!chosen.some(q=>Math.abs(q.price-z.price)<Math.max(A*.28,.30))){chosen.push(z);}
+    if(chosen.length>=3)break;
+  }
+  // If the live liquidity map has fewer than three usable levels, extend targets
+  // from current volatility (ATR), never from fixed 10/20/30-point distances.
+  const fallback=[A*.75,A*1.35,A*2.05];
+  for(let i=0;i<3;i++){
+    if(!chosen[i]){
+      let price=px+side*fallback[i];
+      if(i>0) price=Math.max(Math.abs(price-px),Math.abs(chosen[i-1]?.price-px||0)+A*.30)*side+px;
+      chosen[i]={price,types:['ATR extension'],why:'امتداد مبني على التذبذب الحالي (ATR)'};
+    }
+  }
+  let slCandidates=zones.filter(z=>side>0?z.price<px-minGap:z.price>px+minGap);
+  slCandidates.sort((a,b)=>side>0?b.price-a.price:a.price-b.price);
+  let slBase=slCandidates[0];
+  let sl=slBase?slBase.price-side*A*.18:px-side*A*.90;
+  if(side>0) sl=Math.min(sl,px-A*.45); else sl=Math.max(sl,px+A*.45);
+  const risk=Math.abs(px-sl);
+  const sp=Math.max(0,Number(CFG.spread)||0), minRR=Math.max(0,Number(CFG.minRR)||0);
+  // TP1 must pay at least risk*minRR after the spread; TP2/TP3 keep a real gap beyond it.
+  const d=chosen.map(z=>Math.abs(z.price-px));
+  const reasons=chosen.map(z=>z.why||z.types?.join(' / ')||'منطقة سوقية');
+  const need=[minRR>0?risk*minRR+sp:sp*2,0,0];
+  if(d[0]<need[0]){d[0]=need[0];reasons[0]=minRR>0?`امتداد لتحقيق R:R ${minRR} بعد السبريد`:'امتداد ليغطي السبريد مرتين';}
+  if(d[1]<d[0]+risk*.6){d[1]=d[0]+risk*.6;reasons[1]='امتداد بعد TP1 (0.6R)';}
+  if(d[2]<d[1]+risk*.6){d[2]=d[1]+risk*.6;reasons[2]='امتداد بعد TP2 (0.6R)';}
+  const tps=d.map(v=>px+side*v);
+  const net=v=>(v-sp)/(risk+sp);
+  return {entry:px,sl,tp1:tps[0],tp2:tps[1],tp3:tps[2],risk,spread:sp,rr1:net(d[0]),rr2:net(d[1]),rr3:net(d[2]),
+    tpReasons:reasons,
+    slReason:slBase?`خلف ${slBase.types?.join(' / ')||'منطقة سيولة'} عند ${fmt(slBase.price)}`:'خلف نطاق التذبذب الحالي (ATR)'};
+}
+
+
+function classifyMovePath(work,px,A,vp,flow,rawF,macroStructure,imm,fd,ms){
+  // High-confidence path classifier:
+  // CORRECTION = counter-move while the main structure/pressure remains intact.
+  // REVERSAL = prior path has lost its structural anchor and pressure has flipped/persisted.
+  // MOVE_END = the active leg is stopping/exhausting, but reversal is not yet established.
+  if(!Array.isArray(work)||work.length<8||!Number.isFinite(px)||!Number.isFinite(A)||A<=0){
+    return {state:'WAIT',direction:null,confidence:0,reason:'بيانات غير كافية لتصنيف نهاية الحركة.'};
+  }
+  const bars=work.slice(-8);
+  const last=bars.at(-1), p1=bars.at(-2), p2=bars.at(-3), p3=bars.at(-4);
+  const bullTrend=macroStructure==='BULLISH'||imm?.bull;
+  const bearTrend=macroStructure==='BEARISH'||imm?.bear;
+  const mainDir=bullTrend&&!bearTrend?'UP':bearTrend&&!bullTrend?'DOWN':(rawF?.[0]?.score>0.12?'UP':rawF?.[0]?.score<-.12?'DOWN':null);
+  if(!mainDir) return {state:'WAIT',direction:null,confidence:0,reason:'الاتجاه الأساسي غير حاسم؛ لا نصنف التصحيح/الانعكاس.'};
+
+  const score=(rawF?.[0]?.score??0);
+  const prevScore=(rawF?.[1]?.score??score);
+  const flowFlip=mainDir==='UP' ? flow<-8 : flow>8;
+  const flowStill=mainDir==='UP' ? flow> -4 : flow< 4;
+  const momentumFlip=mainDir==='UP' ? score<-.12 : score>.12;
+  const forecastFlip=mainDir==='UP' ? (score<-.10&&prevScore<0) : (score>.10&&prevScore>0);
+  const persistence=bars.slice(-3).filter(z=>mainDir==='UP'?z.close<z.open:z.close>z.open).length;
+
+  // Structural anchors: the last opposing swing that must break for a true path change.
+  const recentLow=Math.min(...bars.slice(-6).map(z=>Number(z.low)).filter(Number.isFinite));
+  const recentHigh=Math.max(...bars.slice(-6).map(z=>Number(z.high)).filter(Number.isFinite));
+  const anchorLow=Math.min(...bars.slice(-5,-1).map(z=>Number(z.low)).filter(Number.isFinite));
+  const anchorHigh=Math.max(...bars.slice(-5,-1).map(z=>Number(z.high)).filter(Number.isFinite));
+  const breakAnchorDown=mainDir==='UP' && Number.isFinite(anchorLow) && px<anchorLow-A*.08;
+  const breakAnchorUp=mainDir==='DOWN' && Number.isFinite(anchorHigh) && px>anchorHigh+A*.08;
+  const breakAnchor=breakAnchorDown||breakAnchorUp;
+
+  const valueLost=mainDir==='UP'
+    ? (Number.isFinite(vp?.poc)&&px<vp.poc-A*.12)
+    : (Number.isFinite(vp?.poc)&&px>vp.poc+A*.12);
+  const valueExtreme=mainDir==='UP'
+    ? (Number.isFinite(vp?.vah)&&px>=vp.vah-A*.25)
+    : (Number.isFinite(vp?.val)&&px<=vp.val+A*.25);
+
+  const exhaustion = mainDir==='UP'
+    ? (valueExtreme && (ms?.slow||fd?.bull||flow<6))
+    : (valueExtreme && (ms?.slow||fd?.bear||flow>-6));
+
+  // True reversal needs a structural break + pressure/forecast flip, with persistence.
+  let reversalScore=0;
+  if(breakAnchor) reversalScore+=35;
+  if(flowFlip) reversalScore+=25;
+  if(momentumFlip) reversalScore+=15;
+  if(forecastFlip) reversalScore+=10;
+  if(valueLost) reversalScore+=10;
+  if(persistence>=2) reversalScore+=10;
+  if(exhaustion) reversalScore+=5;
+
+  // Correction: price moves against the trend, but the structural anchor survives
+  // and the original pressure/forecast has not fully flipped.
+  const counterBars=bars.slice(-3).filter(z=>mainDir==='UP'?z.close<z.open:z.close>z.open).length;
+  const correctionEvidence=(counterBars>=1||exhaustion) && !breakAnchor && (flowStill||!flowFlip) && !forecastFlip;
+  let correctionScore=0;
+  if(correctionEvidence) correctionScore+=35;
+  if(exhaustion) correctionScore+=25;
+  if(!breakAnchor) correctionScore+=20;
+  if(flowStill) correctionScore+=10;
+  if(counterBars>=1) correctionScore+=10;
+
+  if(reversalScore>=70){
+    const direction=mainDir==='UP'?'DOWN':'UP';
+    return {state:'REVERSAL',direction,confidence:Math.min(99,reversalScore),
+      reason:`انعكاس حقيقي عالي الثقة: كسر بنيوي ${breakAnchor?'✔':'—'} + انقلاب ضغط ${flowFlip?'✔':'—'} + استمرار ${persistence>=2?'✔':'—'}${valueLost?' + فقد POC':''}.`};
+  }
+  if(correctionScore>=65){
+    return {state:'CORRECTION',direction:mainDir,confidence:Math.min(95,correctionScore),
+      reason:`تصحيح داخل الاتجاه: الحركة المضادة لم تكسر البنية الرئيسية، والضغط/التوقع الأساسي ما زال يحمي ${mainDir==='UP'?'الصعود':'الهبوط'}.`};
+  }
+  if(exhaustion || (valueExtreme && (ms?.slow||fd?.bull||fd?.bear))){
+    return {state:'MOVE_END',direction:mainDir,confidence:Math.min(90,55+(exhaustion?20:0)+(breakAnchor?0:15)),
+      reason:`نهاية/توقف محتملة للحركة الحالية قرب منطقة سوقية مهمة، لكن لا توجد أدلة كافية لتسميتها انعكاسًا حقيقيًا.`};
+  }
+  return {state:'CONTINUATION',direction:mainDir,confidence:55,
+    reason:`الاتجاه ${mainDir==='UP'?'صاعد':'هابط'} ما زال قائمًا؛ لم يظهر بعد تصحيح أو انعكاس عالي الثقة.`};
+}
+
+function confirmedTimeframeTrend(work){
+  const bars=(work||[]).filter(z=>Number.isFinite(z.high)&&Number.isFinite(z.low)&&Number.isFinite(z.close));
+  if(bars.length<20) return {dir:'NEUTRAL',confidence:0,reason:'بيانات غير كافية'};
+  const n=Math.min(80,bars.length);
+  const a=bars.slice(-n);
+  const highs=[],lows=[];
+  // Confirmed pivots only: each pivot has candles on both sides, so the
+  // current candle/path movement cannot redefine the timeframe trend.
+  for(let i=2;i<a.length-2;i++){
+    const b=a[i];
+    if(b.high>=a[i-1].high&&b.high>=a[i-2].high&&b.high>=a[i+1].high&&b.high>=a[i+2].high) highs.push({i,p:b.high});
+    if(b.low<=a[i-1].low&&b.low<=a[i-2].low&&b.low<=a[i+1].low&&b.low<=a[i+2].low) lows.push({i,p:b.low});
+  }
+  const h=highs.slice(-2), l=lows.slice(-2);
+  const bullStruct=h.length===2&&l.length===2&&h[1].p>h[0].p&&l[1].p>l[0].p;
+  const bearStruct=h.length===2&&l.length===2&&h[1].p<h[0].p&&l[1].p<l[0].p;
+  const closes=a.map(z=>z.close);
+  const e20=ema(closes,Math.min(20,closes.length)), e50=ema(closes,Math.min(50,closes.length));
+  const e20Prev=ema(closes.slice(0,-Math.min(5,closes.length-1)),Math.min(20,closes.length-5));
+  const slope=Number.isFinite(e20Prev)?e20-e20Prev:0;
+  const atrV=atr(a)||Math.abs(closes.at(-1)-closes.at(-2))||1;
+  const bullMA=e20>e50 && slope>atrV*.03;
+  const bearMA=e20<e50 && slope<-atrV*.03;
+  let dir='NEUTRAL',confidence=52,reason='بنية مختلطة على هذا الفريم';
+  if(bullStruct){dir='UP';confidence=88;reason='HH + HL مؤكدان على نفس الفريم';}
+  else if(bearStruct){dir='DOWN';confidence=88;reason='LH + LL مؤكدان على نفس الفريم';}
+  else if(bullMA){dir='UP';confidence=72;reason='اتجاه متوسط الفريم صاعد؛ لا يوجد تأكيد بنيوي كامل بعد';}
+  else if(bearMA){dir='DOWN';confidence=72;reason='اتجاه متوسط الفريم هابط؛ لا يوجد تأكيد بنيوي كامل بعد';}
+  return {dir,confidence,reason,confirmedBars:n,hh:h.at(-1)?.p||null,hl:l.at(-1)?.p||null};
+}
+
+function calc(b,tick){
+  let closed=b.filter(x=>!x.isOpen); let work=closed.length>=30?closed:b;
+  let c=work.map(x=>x.close), last=c.at(-1), e20=ema(c,20), e50=ema(c,50), e200=ema(c,Math.min(200,c.length)), A=atr(work), flow=qflow(work), vp=priceBins(work);
+  let lc=work.at(-1), prev=work.at(-2), prev2=work.at(-3);
+  let macroStructure=e20>e50?'BULLISH':e20<e50?'BEARISH':'NEUTRAL';
+  let timeframeTrend=confirmedTimeframeTrend(work);
+  let imm=immediateStructure(work,A);
+  let structure=imm.bear?'BEARISH SHIFT':imm.bull?'BULLISH SHIFT':macroStructure;
+  let rawF=[1,2,3].map(h=>forecast(work,null,h));
+  if(imm.bear){ rawF=rawF.map((f,i)=>({...f,score:f.score-(i===0?.34:i===1?.22:.12),dir:f.score-(i===0?.34:i===1?.22:.12)<-.20?'BEARISH':f.dir,price:(f.score-(i===0?.34:i===1?.22:.12)<-.20?last-Math.max(A*(i===0?.42:i===1?.70:1),A*Math.abs(f.score)):f.price)})); }
+  if(imm.bull){ rawF=rawF.map((f,i)=>({...f,score:f.score+(i===0?.34:i===1?.22:.12),dir:f.score+(i===0?.34:i===1?.22:.12)>.20?'BULLISH':f.dir,price:(f.score+(i===0?.34:i===1?.22:.12)>.20?last+Math.max(A*(i===0?.42:i===1?.70:1),A*Math.abs(f.score)):f.price)})); }
+  let px=Number.isFinite(tick?.mid)?tick.mid:last; let preMove=preMoveReality(work,tick,state.liveTicks); let lagSec=feedLagSeconds(work,state.tf); let maxLag=intervalSeconds(state.tf)*2+90; let feedFresh=Number.isFinite(lagSec)&&lagSec<=maxLag;
+  // V10 live-shift layer: compare live quote with the latest closed candle.
+  let liveMove=Number.isFinite(px)&&Number.isFinite(last)?px-last:0;
+  let liveShockBear=Number.isFinite(liveMove)&&liveMove<=-Math.max(A*.55,.80)&&(px<last-A*.30);
+  let liveShockBull=Number.isFinite(liveMove)&&liveMove>=Math.max(A*.55,.80)&&(px>last+A*.30);
+  let livePocLoss=Number.isFinite(px)&&px<vp.poc-A*.10&&Number.isFinite(last)&&last>=vp.poc-A*.10;
+  let livePocReclaim=Number.isFinite(px)&&px>vp.poc+A*.10&&Number.isFinite(last)&&last<=vp.poc+A*.10;
+  let liveBreakLow=Number.isFinite(px)&&lc&&px<lc.low-A*.08;
+  let liveBreakHigh=Number.isFinite(px)&&lc&&px>lc.high+A*.08;
+  let liveBearShift=liveShockBear&&(livePocLoss||liveBreakLow||px<vp.poc);
+  let liveBullShift=liveShockBull&&(livePocReclaim||liveBreakHigh||px>vp.poc);
+  let inside=px>=vp.val&&px<=vp.vah;
+  let nearVAH=Math.abs(px-vp.vah)<=Math.max(A*.50,.25), nearVAL=Math.abs(px-vp.val)<=Math.max(A*.50,.25);
+  let closeAbove=!!lc&&lc.close>vp.vah, closeBelow=!!lc&&lc.close<vp.val;
+  let recentAbove=work.slice(-3).some(z=>z.close>vp.vah), recentBelow=work.slice(-3).some(z=>z.close<vp.val);
+  let rs=rangeState(work,vp,A);
+  let wi=wickInfo(lc||{open:last,high:last,low:last,close:last}), fd=flowDivergence(work), ms=momentumState(work);
+  let pathState=classifyMovePath(work,px,A,vp,flow,rawF,macroStructure,imm,fd,ms);
+  let upperReject=rejectionAt(work,vp.vah,'upper')||rejectionAt(work,vp.poc,'upper');
+  let lowerReject=rejectionAt(work,vp.val,'lower')||rejectionAt(work,vp.poc,'lower');
+  // Exhaustion is based only on price/flow/momentum evidence.
+  let bullExhaust=((nearVAH||px>vp.vah)&&(ms.slow||fd.bull||upperReject||flow<6));
+  let strongBearContinuation=(
+    (macroStructure==='BEARISH'||imm.bear||liveBearShift) &&
+    (flow<-8 || rawF[0].score<-.18) &&
+    (rawF[0].dir==='BEARISH'||imm.bear||liveBearShift) &&
+    (closeBelow||recentBelow||liveMove<-Math.max(A*.45,.60)) &&
+    !fd.bull
+  );
+  let strongBullContinuation=(
+    (macroStructure==='BULLISH'||imm.bull||liveBullShift) &&
+    (flow>8 || rawF[0].score>.18) &&
+    (rawF[0].dir==='BULLISH'||imm.bull||liveBullShift) &&
+    (closeAbove||recentAbove||liveMove>Math.max(A*.45,.60)) &&
+    !fd.bear
+  );
+  let bearExhaust=((nearVAL||px<vp.val)&&!strongBearContinuation&&((ms.slow&&flow>-6)||fd.bear||lowerReject));
+  let failedBull=closeAbove&&((px<vp.vah+A*.10&&wi.upperPct>.42)||flow<0||fd.bull);
+  let failedBear=closeBelow&&((px>vp.val-A*.10&&wi.lowerPct>.42)||flow>0||fd.bear);
+  let strongBearMomentum=(
+    feedFresh && !failedBear && !bearExhaust &&
+    (strongBearContinuation || (macroStructure==='BEARISH'&&flow<-10&&rawF[0].score<-.15&&closeBelow))
+  );
+  let strongBullMomentum=(
+    feedFresh && !failedBull && !bullExhaust &&
+    (strongBullContinuation || (macroStructure==='BULLISH'&&flow>10&&rawF[0].score>.15&&closeAbove))
+  );
+  if(!CFG.momentum){strongBearMomentum=false;strongBullMomentum=false;}
+  let structureShiftBull=work.length>=3&&lc.high>prev.high&&lc.low>prev.low&&prev.low<=prev2.low;
+  let structureShiftBear=work.length>=3&&lc.high<prev.high&&lc.low<prev.low&&prev.high>=prev2.high;
+  let microBear=(imm.bear||liveBearShift)&&!bearExhaust&&!bullExhaust;
+  let microBull=(imm.bull||liveBullShift)&&!bullExhaust&&!bearExhaust;
+  let microBearLevel=Number.isFinite(imm.level)?imm.level:(livePocLoss?vp.poc:lc?.low);
+  let microBullLevel=Number.isFinite(imm.level)?imm.level:(livePocReclaim?vp.poc:lc?.high);
+  let microBearRetest=microBear&&Number.isFinite(microBearLevel)&&px<=microBearLevel+A*.18&&px>=microBearLevel-A*.30&&flow<8&&rawF[0].score<-.12;
+  let microBullRetest=microBull&&Number.isFinite(microBullLevel)&&px>=microBullLevel-A*.18&&px<=microBullLevel+A*.30&&flow>-8&&rawF[0].score>.12;
+  // V16: use closed-candle evidence for the break, then live-price retest/continuation.
+  let legacyBullBreak=recentAbove&&closeAbove&&flow>10&&rawF[0].dir==='BULLISH'&&(macroStructure==='BULLISH'||microBull)&&!bullExhaust&&!failedBull;
+  let legacyBearBreak=recentBelow&&closeBelow&&flow<-10&&rawF[0].dir==='BEARISH'&&(macroStructure==='BEARISH'||microBear)&&!bearExhaust&&!failedBear;
+  let timingSide=microBear||legacyBearBreak?'SELL':microBull||legacyBullBreak?'BUY':null;
+  let timingTrigger=timingSide==='SELL'?(Number.isFinite(microBearLevel)?microBearLevel:vp.val):timingSide==='BUY'?(Number.isFinite(microBullLevel)?microBullLevel:vp.vah):NaN;
+  // Prefer stable value edges when a live shift trigger is too close to the moving candle low/high.
+  if(timingSide==='SELL' && (!Number.isFinite(timingTrigger)||Math.abs(timingTrigger-vp.val)>A*1.5))timingTrigger=vp.val;
+  if(timingSide==='BUY' && (!Number.isFinite(timingTrigger)||Math.abs(timingTrigger-vp.vah)>A*1.5))timingTrigger=vp.vah;
+  let ev=breakRetestEvidence(work,lc,px,A,vp,flow,rawF[0].score,timingSide,timingTrigger);
+  let bullBreak=(ev.bullBreakClosed||legacyBullBreak)&&flow>5&&rawF[0].score>.08&&!bullExhaust&&!failedBull;
+  let bearBreak=(ev.bearBreakClosed||legacyBearBreak)&&flow<-5&&rawF[0].score<-.08&&!bearExhaust&&!failedBear;
+  if(timingSide==='BUY' && !bullBreak && microBull)bullBreak=ev.bullBreakClosed;
+  if(timingSide==='SELL' && !bearBreak && microBear)bearBreak=ev.bearBreakClosed;
+  let closedBreakForSide=timingSide==='BUY'?ev.bullBreakClosed:timingSide==='SELL'?ev.bearBreakClosed:false;
+  let retestEvidenceForSide=timingSide==='BUY'?ev.bullRetest:timingSide==='SELL'?ev.bearRetest:false;
+  let confirmEvidenceForSide=timingSide==='BUY'?ev.bullConfirm:timingSide==='SELL'?ev.bearConfirm:false;
+  let timing=timingSide?updateTiming(px,A,timingSide,timingTrigger,flow,rawF[0].score,closedBreakForSide,retestEvidenceForSide,confirmEvidenceForSide):{side:null,stage:'IDLE',trigger:NaN,band:0,reason:'لا يوجد Trigger صالح.',confirmedAt:0,closedBreak:false,retestSeen:false};
+  let bullRetest=ev.bullRetest && (!rs.consolidating||rs.expansion);
+  let bearRetest=ev.bearRetest && (!rs.consolidating||rs.expansion);
+  let confirmQuality=timingQuality(timingSide,timing.stage,flow,rawF[0].score,rawF[0].confidence,A,px,timing.trigger,timing.band,bullExhaust||bearExhaust,failedBull||failedBear,timing.closedBreak);
+
+  let phase='VALUE BALANCE',phaseReason='السعر داخل/حول القيمة؛ لا يوجد اختراق مؤكد.';
+  if(timing.stage==='CONFIRMED ENTRY'){phase='CONFIRMED ENTRY';phaseReason=timing.reason;}
+  else if(timing.stage==='RETEST'){phase='RETEST';phaseReason=timing.reason;}
+  else if(timing.stage==='BREAK'){phase='PRE-TRIGGER';phaseReason=timing.reason;}
+  else if(timing.stage==='MISSED'){phase='MISSED / NO CHASE';phaseReason=timing.reason;}
+  else if(liveBearShift&&!bearBreak){phase='LIVE BEARISH SHIFT';phaseReason=`هبوط حي سريع ${fmt(liveMove,2)}؛ ننتظر Break ثم Retest قرب ${fmt(microBearLevel)}.`;}
+  else if(liveBullShift&&!bullBreak){phase='LIVE BULLISH SHIFT';phaseReason=`صعود حي سريع ${fmt(liveMove,2)}؛ ننتظر Break ثم Retest قرب ${fmt(microBullLevel)}.`;}
+  else if(microBear&&!bearBreak){phase='EARLY BEARISH SHIFT';phaseReason=`تحول هابط مبكر: ${imm.reason} — ننتظر Break ثم Retest قرب ${fmt(microBearLevel)}.`;}
+  else if(microBull&&!bullBreak){phase='EARLY BULLISH SHIFT';phaseReason=`تحول صاعد مبكر: ${imm.reason} — ننتظر Break ثم Retest قرب ${fmt(microBullLevel)}.`;}
+  else if(bullBreak&&rs.consolidating&&!rs.expansion){phase='BREAKOUT CONSOLIDATION';phaseReason='السعر فوق VAH لكن التوسع غير كافٍ؛ ننتظر Expansion ثم Retest.';}
+  else if(bearBreak&&rs.consolidating&&!rs.expansion){phase='BREAKDOWN CONSOLIDATION';phaseReason='السعر تحت VAL لكن التوسع غير كافٍ؛ ننتظر Expansion ثم Retest.';}
+  else if(bullBreak&&rs.expansion){phase='BREAKOUT CONFIRMING';phaseReason='إغلاق فوق VAH + توسع + تدفق شرائي؛ نراقب Retest.';}
+  else if(bearBreak&&rs.expansion){phase='BREAKDOWN CONFIRMING';phaseReason='إغلاق تحت VAL + توسع + تدفق بيعي؛ نراقب Retest.';}
+  else if(failedBull){phase='BREAKOUT FAILED';phaseReason='فقد الاختراق الصاعد قبول السعر/التدفق؛ لا مطاردة.';}
+  else if(failedBear){phase='BREAKDOWN FAILED';phaseReason='فقد الكسر الهابط قبول السعر/التدفق؛ لا مطاردة.';}
+  else if(closeAbove){phase='ABOVE VALUE';phaseReason='فوق VAH؛ نحتاج Retest وقبولًا قبل الدخول.';}
+  else if(closeBelow){phase='BELOW VALUE';phaseReason='تحت VAL؛ نحتاج Retest وقبولًا قبل الدخول.';}
+
+  let marketState='VALUE BALANCE';
+  if(timing.stage==='CONFIRMED ENTRY')marketState='CONFIRMED ENTRY';
+  else if(timing.stage==='RETEST')marketState='RETEST';
+  else if(timing.stage==='BREAK')marketState='PRE-TRIGGER';
+  else if(timing.stage==='MISSED')marketState='MISSED / NO CHASE';
+  else if(liveBearShift&&!bearBreak)marketState='LIVE BEARISH SHIFT';
+  else if(liveBullShift&&!bullBreak)marketState='LIVE BULLISH SHIFT';
+  else if(microBear&&!bearBreak)marketState='EARLY BEARISH SHIFT';
+  else if(microBull&&!bullBreak)marketState='EARLY BULLISH SHIFT';
+  else if((bullBreak||bearBreak)&&rs.consolidating)marketState=bullBreak?'BREAKOUT CONSOLIDATION':'BREAKDOWN CONSOLIDATION';
+  else if((bullBreak&&rs.expansion)||(bearBreak&&rs.expansion))marketState='EXPANSION';
+  else if(!inside&&(nearVAH||nearVAL))marketState='EDGE TEST';
+  else if(rs.consolidating)marketState='CONSOLIDATION';
+  else if(failedBull||failedBear)marketState='FAILED BREAK';
+  let f=rawF.map(z=>forecastForState(z,marketState));
+  const fc=(f.map(z=>z.score).reduce((a,v)=>a+v,0)/Math.max(1,f.length));
+  const forecastConsensus=Math.round(f.reduce((a,z)=>a+z.confidence,0)/Math.max(1,f.length));
+
+  let decision='WAIT',reason='لا توجد مطابقة كافية بين البنية والتدفق والتوقيت.';
+  if(bullExhaust)reason='إجهاد شرائي قرب المقاومة/القيمة العليا؛ ننتظر إعادة بناء.';
+  else if(bearExhaust)reason='إجهاد بيعي قرب الدعم/القيمة السفلى؛ ننتظر إعادة بناء.';
+  else if(failedBull)reason='اختراق صاعد فقد القبول؛ لا مطاردة.';
+  else if(failedBear)reason='كسر هابط فقد القبول؛ لا مطاردة.';
+  else if(timing.stage==='CONFIRMED ENTRY'&&timing.side==='BUY'){decision='BUY';reason=`تأكيد BUY: Break + Retest + استمرار حي. Trigger ${fmt(timing.trigger)}.`;}
+  else if(timing.stage==='CONFIRMED ENTRY'&&timing.side==='SELL'){decision='SELL';reason=`تأكيد SELL: Break + Retest + استمرار حي. Trigger ${fmt(timing.trigger)}.`;}
+  else if(strongBullMomentum){decision='BUY';reason=`BUY زخم صاعد: الاتجاه والبنية والتدفق والتنبؤ اللحظي متوافقون مع استمرار الصعود؛ الدخول الحالي مبني على زخم وليس مطاردة عمياء.`;}
+  else if(strongBearMomentum){decision='SELL';reason=`SELL زخم هابط: الاتجاه والبنية والتدفق والتنبؤ اللحظي متوافقون مع استمرار الهبوط؛ الدخول الحالي مبني على زخم وليس مطاردة عمياء.`;}
+  else if(timing.stage==='MISSED')reason=timing.reason;
+  else if(timing.stage==='RETEST')reason=`RETEST ${timingSide}: السعر داخل منطقة التأكيد؛ ننتظر استمرارًا واضحًا قبل الدخول.`;
+  else if(timing.stage==='BREAK')reason=`BREAK ${timingSide}: تم تجاوز Trigger ${fmt(timing.trigger)}؛ ننتظر Retest ولا نطارد السعر.`;
+  else if(liveBullShift||microBull){decision='BUY WATCH';reason=`BUY WATCH: تحول صاعد؛ ننتظر Break ثم Retest قرب ${fmt(timingTrigger)}.`;}
+  else if(liveBearShift||microBear){decision='SELL WATCH';reason=`SELL WATCH: تحول هابط؛ ننتظر Break ثم Retest قرب ${fmt(timingTrigger)}.`;}
+  else if(bullBreak){decision='BUY WATCH';reason='اختراق صاعد؛ ننتظر Break/Retest صالح قبل الدخول.';}
+  else if(bearBreak){decision='SELL WATCH';reason='كسر هابط؛ ننتظر Break/Retest صالح قبل الدخول.';}
+  else if(inside)reason='السعر داخل منطقة القيمة؛ لا دخول من المنتصف.';
+
+  if(timing.stage==='CONFIRMED ENTRY' && (confirmQuality<70 || !timing.retestSeen || !timing.closedBreak)){
+    timingMemory.stage='RETEST'; timingMemory.confirmedAt=0; timing.stage='RETEST'; timing.confirmedAt=0;
+    reason='التأكيد غير مكتمل: جودة التوقيت أقل من 70% أو دليل Break/Retest غير كافٍ؛ ننتظر استمرارًا أوضح.';
+  }
+  // Path engine: do not treat every counter-move as a reversal.
+  // A high-confidence reversal can change the active direction; a correction keeps it.
+  let reversalEntry=false;
+  if(pathState.state==='REVERSAL' && feedFresh){
+    const newDecision=pathState.direction==='UP'?'BUY':'SELL';
+    if(CFG.momentum){decision=newDecision;reversalEntry=true;reason=`🔄 ${pathState.reason} تم تغيير مسار التحليل إلى ${newDecision}.`;}
+    else{decision=newDecision+' WATCH';reason=`🔄 ${pathState.reason} ننتظر Break + Retest قبل الدخول في اتجاه ${newDecision}.`;}
+    phase='TRUE REVERSAL';
+    phaseReason=pathState.reason;
+    marketState='TRUE REVERSAL';
+  }else if(pathState.state==='CORRECTION' && feedFresh){
+    // Prevent a temporary counter-move from flipping the main path.
+    const keep=pathState.direction==='UP'?'BUY':'SELL';
+    if((keep==='BUY'&&decision==='SELL')||(keep==='SELL'&&decision==='BUY')){
+      decision='WAIT';
+      reason=`↩️ ${pathState.reason} لذلك لا نعكس الاتجاه بسبب التصحيح؛ ننتظر عودة الاستمرار في اتجاه ${keep}.`;
+    }else if(decision==='WAIT'||decision.includes('WATCH')){
+      reason=`↩️ ${pathState.reason} الاتجاه الرئيسي لم ينتهِ بعد.`;
+    }
+    phase='CORRECTION';
+    phaseReason=pathState.reason;
+    marketState='CORRECTION';
+  }else if(pathState.state==='MOVE_END' && feedFresh){
+    // End-of-leg is not automatically a reversal.
+    if(decision==='BUY'||decision==='SELL'){
+      decision='WAIT';
+      reason=`⏸️ ${pathState.reason} لا نغيّر الاتجاه قبل ظهور دليل انعكاس حقيقي.`;
+    }
+    phase='MOVE END / EXHAUSTION';
+    phaseReason=pathState.reason;
+    marketState='MOVE END';
+  }
+
+  if(!feedFresh){decision='WAIT';reason=`بيانات الشموع متأخرة ${Math.round(lagSec/60)} دقيقة؛ لا يمكن تأكيد توقيت الدخول حتى تصل شموع حديثة.`;phase='DATA STALE';phaseReason='التحليل متوقف مؤقتًا لأن OHLC متأخر عن الوقت الحالي.';marketState='DATA STALE';}
+  let score=50+(structure==='BULLISH'?10:structure==='BEARISH'?-10:0)+flow*.18+rawF[0].score*15;
+  if(preMove.dir==='UP' && preMove.score>=72) score+=8; if(preMove.dir==='DOWN' && preMove.score>=72) score-=8;
+  if(bullExhaust||bearExhaust)score-=24; if(upperReject||lowerReject)score-=8; if(fd.bull||fd.bear)score-=7; if(rs.consolidating)score-=10; if(decision==='BUY'||decision==='SELL')score+=12;
+  score=Math.max(0,Math.min(100,score));
+  let liquidity=institutionalLiquidity(work,vp,A,px);
+  const plan=marketPlan(work,vp,A,px,decision,liquidity);
+  const entryType=(reversalEntry&&(decision==='BUY'||decision==='SELL'))?(decision==='BUY'?'REVERSAL BUY':'REVERSAL SELL'):(strongBullMomentum&&decision==='BUY')?'MOMENTUM BUY':(strongBearMomentum&&decision==='SELL')?'MOMENTUM SELL':(decision==='BUY'?'CONFIRMED BUY':decision==='SELL'?'CONFIRMED SELL':'WAIT');
+  return{c,e20,e50,e200,A,flow,vp,f,rawF,px,preMove,structure,macroStructure,timeframeTrend,decision,reason,entryType,score,pathState,phase,phaseReason,marketState,liquidity,bo:vp.vah,bd:vp.val,upper:vp.vah+A*.15,lower:vp.val-A*.15,timing,timingQuality:confirmQuality,breakRetest:ev,bullBreak,bearBreak,bullRetest,bearRetest,timingSide,forecastConsensus,plan,
+    signals:{upperReject,lowerReject,fdBull:fd.bull,fdBear:fd.bear,slow:ms.slow,bullExhaust,bearExhaust,failedBull,failedBear,structureShiftBull,structureShiftBear,immediateBull:imm.bull,immediateBear:imm.bear,microBullRetest,microBearRetest,microLevel:imm.level,displacementBull:imm.displacementBull,displacementBear:imm.displacementBear,liveBearShift,liveBullShift,liveMove,livePocLoss,livePocReclaim,liveBreakLow,liveBreakHigh,consolidating:rs.consolidating,expansion:rs.expansion},lc,feedFresh,lagSec};
+}
+async function getJSON(url,timeout=9000){let ctl=new AbortController(),tm=setTimeout(()=>ctl.abort(),timeout);try{let r=await fetch(url,{cache:'no-store',signal:ctl.signal});if(!r.ok)throw new Error('HTTP '+r.status);return await r.json()}finally{clearTimeout(tm)}}
+function calcForTimeframe(bars,tick,tf){
+  const oldTf=state.tf, oldTiming=timingMemory;
+  try{state.tf=tf; timingMemory={...oldTiming}; return calc(bars,tick);}
+  finally{state.tf=oldTf; timingMemory=oldTiming;}
+}
+function mtfDirection(x){
+  if(!x) return {text:'—',cls:'yellow'};
+  const t=x.timeframeTrend;
+  if(t?.dir==='UP') return {text:'🟢 الاتجاه العام صاعد',cls:'green'};
+  if(t?.dir==='DOWN') return {text:'🔴 الاتجاه العام هابط',cls:'red'};
+  return {text:'🟡 الاتجاه العام متوازن',cls:'yellow'};
+}
+function smartFrameState(x){
+  if(!x) return {state:'WAIT',dir:null,confidence:0,label:'⏳ انتظار',trendLabel:'—',trendReason:'غير متاح'};
+  const t=x.timeframeTrend||{dir:'NEUTRAL',confidence:0,reason:'غير متاح'};
+  const trendDir=t.dir==='UP'?'UP':t.dir==='DOWN'?'DOWN':null;
+  const trendLabel=t.dir==='UP'?'🟢 الاتجاه العام صاعد':t.dir==='DOWN'?'🔴 الاتجاه العام هابط':'🟡 الاتجاه العام متوازن';
+  const ps=x.pathState;
+  let current={state:'CONTINUATION',label:trendDir==='UP'?'استمرار صاعد':trendDir==='DOWN'?'استمرار هابط':'حركة غير واضحة',confidence:55};
+  if(ps?.state==='CORRECTION') current={state:trendDir==='UP'?'CORRECTION_DOWN_IN_UP':trendDir==='DOWN'?'CORRECTION_UP_IN_DOWN':'CORRECTION',label:trendDir==='UP'?'🔵 تصحيح هابط داخل صعود':trendDir==='DOWN'?'🟠 تصحيح صاعد داخل هبوط':'🔵 تصحيح',confidence:Math.round(ps.confidence||0)};
+  else if(ps?.state==='REVERSAL') current={state:ps.direction==='UP'?'REVERSAL_UP':'REVERSAL_DOWN',label:ps.direction==='UP'?'🔄 انعكاس صاعد محتمل':'🔄 انعكاس هابط محتمل',confidence:Math.round(ps.confidence||0)};
+  else if(ps?.state==='MOVE_END') current={state:'MOVE_END',label:'⚠️ توقف/إجهاد للحركة الحالية',confidence:Math.round(ps.confidence||0)};
+  return {state:current.state,dir:trendDir,confidence:current.confidence,label:current.label,trendLabel,trendConfidence:t.confidence,trendReason:t.reason,currentReason:ps?.reason||'لا توجد حالة مضادة واضحة'};
+}
+function renderSmartMarketState(){
+  const map=[['1m','M1'],['5m','M5'],['15m','M15'],['30m','M30'],['1h','H1'],['4h','H4'],['1d','D1'],['1w','W1']];
+  const data=map.map(([tf,label])=>({tf,label,x:state.multiTF?.[tf]||null,s:smartFrameState(state.multiTF?.[tf]||null)}));
+  const weights={'1m':.5,'5m':.75,'15m':1.25,'30m':2,'1h':2.5,'4h':3.5,'1d':4,'1w':4.5};
+  let up=0,down=0,corUp=0,corDown=0,revUp=0,revDown=0,valid=0;
+  data.forEach(d=>{if(!d.x)return;valid++;const w=weights[d.tf]; if(d.s.dir==='UP')up+=w; if(d.s.dir==='DOWN')down+=w; if(d.s.state==='CORRECTION_DOWN_IN_UP')corUp+=w; if(d.s.state==='CORRECTION_UP_IN_DOWN')corDown+=w; if(d.s.state==='REVERSAL_UP')revUp+=w; if(d.s.state==='REVERSAL_DOWN')revDown+=w;});
+  let overall={state:'WAIT',cls:'yellow',title:'⏳ بيانات غير مكتملة',reason:'نحتاج قراءة كافية من الأطر الستة.'};
+  const max=Math.max(up,down), total=valid?data.filter(d=>d.x).reduce((a,d)=>a+weights[d.tf],0):1;
+  if(valid>=4){
+    if(revUp>=4 && revUp>revDown+1){overall={state:'REVERSAL_UP',cls:'green',title:'🔄 انعكاس صاعد محتمل',reason:'عدة أطر ترصد انقلابًا صاعدًا؛ التصنيف يعتمد على كسر البنية وانقلاب الضغط والاستمرار، وليس على منطقة سعرية وحدها.'};}
+    else if(revDown>=4 && revDown>revUp+1){overall={state:'REVERSAL_DOWN',cls:'red',title:'🔄 انعكاس هابط محتمل',reason:'عدة أطر ترصد انقلابًا هابطًا؛ التصنيف يعتمد على كسر البنية وانقلاب الضغط والاستمرار، وليس على منطقة سعرية وحدها.'};}
+    else if(corUp>=2.5 && up>down*1.15){overall={state:'CORRECTION_DOWN_IN_UP',cls:'yellow',title:'🔵 تصحيح داخل اتجاه صاعد',reason:'الحركة المضادة موجودة، لكن الوزن الأكبر من الأطر ما زال صاعدًا؛ لا نعامل التصحيح كانعكاس.'};}
+    else if(corDown>=2.5 && down>up*1.15){overall={state:'CORRECTION_UP_IN_DOWN',cls:'yellow',title:'🟠 تصحيح داخل اتجاه هابط',reason:'الحركة المضادة موجودة، لكن الوزن الأكبر من الأطر ما زال هابطًا؛ لا نعامل التصحيح كانعكاس.'};}
+    else if(up/total>=.62){overall={state:'TREND_UP',cls:'green',title:'🟢 اتجاه صاعد قوي نسبيًا',reason:'غالبية الأطر تميل للصعود مع أولوية W1/D1/H4 ثم H1/M30 في قراءة السياق.'};}
+    else if(down/total>=.62){overall={state:'TREND_DOWN',cls:'red',title:'🔴 اتجاه هابط قوي نسبيًا',reason:'غالبية الأطر تميل للهبوط مع أولوية W1/D1/H4 ثم H1/M30 في قراءة السياق.'};}
+    else {overall={state:'RANGE',cls:'yellow',title:'⚪ نطاق / اتجاه غير واضح',reason:'الأطر متعارضة أو متوازنة؛ لا نفرض اتجاهًا واحدًا على السوق.'};}
+  }
+  $('smartStateTitle').textContent=overall.title; $('smartStateTitle').className='big '+overall.cls; $('smartStateReason').textContent=overall.reason; $('smartMarketState').className='decision '+(overall.cls==='green'?'buy':overall.cls==='red'?'sell':'watch');
+  $('smartTfGrid').innerHTML=data.map(d=>`<div class="metric"><div class="label">${d.label}</div><div class="value ${d.s.dir==='UP'?'green':d.s.dir==='DOWN'?'red':'yellow'}">${d.s.trendLabel}</div><div class="small">${d.x?`ثقة الاتجاه ${d.s.trendConfidence}% • ${d.s.trendReason}`:'غير متاح'}</div><div class="small" style="margin-top:5px">${d.x?`الحالة الحالية: ${d.s.label} • ${d.s.confidence}%`:'—'}</div></div>`).join('');
+}
+function renderMTF(){
+  const m=state.multiTF?.['30m'], h=state.multiTF?.['4h'];
+  const a=mtfDirection(m), b=mtfDirection(h);
+  $('mtf30Dir').textContent=a.text; $('mtf30Dir').className='value '+a.cls;
+  $('mtf4hDir').textContent=b.text; $('mtf4hDir').className='value '+b.cls;
+  $('mtf30Sub').textContent=m?`Flow ${m.flow>=0?'+':''}${fmt(m.flow,0)}% • ${m.timeframeTrend?.reason||'—'} • الحالة: ${m.pathState?.state||'—'}`: 'غير متاح';
+  $('mtf4hSub').textContent=h?`Flow ${h.flow>=0?'+':''}${fmt(h.flow,0)}% • ${h.timeframeTrend?.reason||'—'} • الحالة: ${h.pathState?.state||'—'}`: 'غير متاح';
+  if(!m||!h){$('mtfAlignment').textContent='⚠️ لم تكتمل بيانات M30/H4 بعد.';} else {
+    const md=a.cls==='green'?'UP':a.cls==='red'?'DOWN':'NEUTRAL'; const hd=b.cls==='green'?'UP':b.cls==='red'?'DOWN':'NEUTRAL';
+    let msg='🟡 M30 وH4 غير متطابقين — نعرض الاختلاف ولا نغيّر قرار الصفقة الحالي.';
+    if(md==='UP'&&hd==='UP')msg='🟢 M30 + H4 متوافقان صعوديًا — السياق المتوسط والرئيسي يدعمان الصعود.';
+    if(md==='DOWN'&&hd==='DOWN')msg='🔴 M30 + H4 متوافقان هبوطيًا — السياق المتوسط والرئيسي يدعمان الهبوط.';
+    $('mtfAlignment').textContent=msg;
+  }
+  const d=state.multiTF?.['1d'], w=state.multiTF?.['1w'];
+  const da=mtfDirection(d), wa=mtfDirection(w);
+  $('mtf1dDir').textContent=da.text; $('mtf1dDir').className='value '+da.cls;
+  $('mtf1wDir').textContent=wa.text; $('mtf1wDir').className='value '+wa.cls;
+  $('mtf1dSub').textContent=d?`Flow ${d.flow>=0?'+':''}${fmt(d.flow,0)}% • ${d.timeframeTrend?.reason||'—'} • الحالة: ${d.pathState?.state||'—'}`:'غير متاح';
+  $('mtf1wSub').textContent=w?`Flow ${w.flow>=0?'+':''}${fmt(w.flow,0)}% • ${w.timeframeTrend?.reason||'—'} • الحالة: ${w.pathState?.state||'—'}`:'غير متاح';
+  if(!d||!w) $('higherTFAlignment').textContent='⚠️ لم تكتمل بيانات D1/W1 بعد.';
+  else { const dd=da.cls==='green'?'UP':da.cls==='red'?'DOWN':'NEUTRAL'; const ww=wa.cls==='green'?'UP':wa.cls==='red'?'DOWN':'NEUTRAL'; $('higherTFAlignment').textContent=dd===ww&&dd!=='NEUTRAL'?`🟢 D1 + W1 متوافقان ${dd==='UP'?'صعوديًا':'هبوطيًا'} — فلتر الاتجاه الأكبر متوافق.`:'🟡 D1 + W1 غير متطابقين — يمنعان فرض اتجاه قوي.'; }
+  renderSmartMarketState();
+}
+// OF engine state is declared before any initial load() call.
+// Main strategy engine.
+let ofEngine={symbol:'XAUUSDT',side:'NONE',buy:0,sell:0,net:0,fresh:false,stage:'WAIT',reason:'لم تصل بيانات Order Flow بعد.',price:0,confirmedEntry:null};
+
+let frozenSig=null;
+const JR_KEY='xau_v26_journal';
+let journal={open:null,closed:[]};
+try{const j=JSON.parse(localStorage.getItem(JR_KEY)||'null');if(j&&Array.isArray(j.closed))journal={open:j.open||null,closed:j.closed};}catch(e){}
+function saveJournal(){try{localStorage.setItem(JR_KEY,JSON.stringify({open:journal.open,closed:journal.closed.slice(-500)}))}catch(e){}}
+function openJournal(sig){
+  if(journal.open||!sig?.plan)return;
+  journal.open={side:sig.side,type:sig.type,at:sig.at,entry:sig.plan.entry,sl:sig.plan.sl,tp1:sig.plan.tp1,spread:Number(CFG.spread)||0,tf:state.tf};
+  saveJournal();
+}
+function updateJournal(px){
+  const o=journal.open; if(!o||!Number.isFinite(px))return;
+  const b=o.side==='BUY'; let exit=null,res=null;
+  if(b?px<=o.sl:px>=o.sl){exit=o.sl;res='SL';}
+  else if(b?px>=o.tp1:px<=o.tp1){exit=o.tp1;res='TP1';}
+  else if(Date.now()-o.at>6*3600*1000){exit=px;res='وقت';}
+  if(exit==null)return;
+  const pnl=(b?exit-o.entry:o.entry-exit)-o.spread;
+  journal.closed.push({...o,exit,res,pnl,closedAt:Date.now()});journal.open=null;saveJournal();
+}
+function renderJournal(){
+  if(!$('jrN'))return;
+  const c=journal.closed, w=c.filter(t=>t.pnl>0), l=c.filter(t=>t.pnl<=0);
+  const gp=w.reduce((s,t)=>s+t.pnl,0), gl=-l.reduce((s,t)=>s+t.pnl,0), net=gp-gl;
+  $('jrN').textContent=String(c.length);
+  $('jrWL').textContent=`${w.length} رابحة • ${l.length} خاسرة`;
+  const wr=c.length?Math.round(w.length/c.length*100):0;
+  $('jrWin').textContent=c.length?wr+'%':'—';
+  $('jrPF').textContent='PF '+(gl>0?(gp/gl).toFixed(2):(gp>0?'∞':'—'));
+  $('jrNet').textContent=c.length?(net>=0?'+':'')+net.toFixed(2)+'$':'—';
+  $('jrNet').className='value '+(net>0?'green':net<0?'red':'');
+  $('jrAvg').textContent=c.length?`متوسط الربح ${(w.length?gp/w.length:0).toFixed(2)}$ • متوسط الخسارة ${(l.length?gl/l.length:0).toFixed(2)}$`:'—';
+  const o=journal.open;
+  $('jrOpen').textContent=o?(o.side==='BUY'?'🟢 BUY':'🔴 SELL'):'—';
+  $('jrOpen').className='value '+(o?(o.side==='BUY'?'green':'red'):'');
+  $('jrOpenSub').textContent=o?`${o.tf} • دخول ${fmt(o.entry)} • SL ${fmt(o.sl)} • TP1 ${fmt(o.tp1)}`:'لا توجد صفقة مفتوحة';
+  const tb=$('jrTable')?.querySelector('tbody');
+  if(tb)tb.innerHTML=c.slice(-12).reverse().map(t=>`<tr><td>${localTime(new Date(t.at).toISOString())}</td><td>${t.tf||'—'}</td><td class="${t.side==='BUY'?'green':'red'}">${t.side}</td><td>${String(t.type||'').replace(' BUY','').replace(' SELL','')}</td><td>${fmt(t.entry)}</td><td>${t.res}</td><td class="${t.pnl>0?'green':'red'}">${t.pnl>=0?'+':''}${t.pnl.toFixed(2)}</td></tr>`).join('')||'<tr><td colspan="7" class="small">لا توجد صفقات مغلقة بعد.</td></tr>';
+}
+function freezePlan(x){
+  if(!x)return;
+  const px=Number(x.px);
+  // a signal's levels stay fixed until price touches its SL or TP1, or it gets too old
+  if(frozenSig){const p=frozenSig.plan,b=frozenSig.side==='BUY';
+    const hit=Number.isFinite(px)&&((b?px<=p.sl:px>=p.sl)||(b?px>=p.tp1:px<=p.tp1));
+    if(hit||Date.now()-frozenSig.at>intervalSeconds(state.tf)*1000*20)frozenSig=null;}
+  if(x.decision==='BUY'||x.decision==='SELL'){
+    if(frozenSig&&frozenSig.side===x.decision){x.plan=frozenSig.plan;x.signalAt=frozenSig.at;}
+    else if(x.plan){frozenSig={side:x.decision,plan:{...x.plan},at:Date.now(),type:x.entryType};x.signalAt=frozenSig.at;openJournal(frozenSig);}
+  }
+}
+function applyStrategyGate(){
+  const r=applyStrategyGateCore();
+  freezePlan(state.calc);
+  return r;
+}
+function applyStrategyGateCore(){
+  const x=state.calc; if(!x) return;
+  if(!x._raw){x._raw={decision:x.decision,entryType:x.entryType,plan:x.plan,reason:x.reason,score:x.score};}
+  else{x.decision=x._raw.decision;x.entryType=x._raw.entryType;x.plan=x._raw.plan;x.reason=x._raw.reason;x.score=x._raw.score;delete x.strategyGate;delete x.strategyGateReason;}
+  const m=state.multiTF||{};
+  // Real Binance Order Flow is a confirmation/filter layer, not a replacement for XAU/USD structure.
+  const of=window.goldOF||ofEngine;
+  if(CFG.ofGate&&(x.decision==='BUY'||x.decision==='SELL')){
+    const wanted=x.decision, ce=of&&of.confirmedEntry;
+    const entryFresh=!!(of&&of.fresh&&ce&&ce.side===wanted&&(Date.now()-ce.at)<=30000);
+    if(!entryFresh){
+      const fresh=!!(of&&of.fresh), opposite=fresh&&((wanted==='BUY'&&of.sell>=65&&of.sell-of.buy>=12)||(wanted==='SELL'&&of.buy>=65&&of.buy-of.sell>=12));
+      x.strategyGate='WAITING_FOR_ORDER_FLOW_ENTRY';
+      x.strategyGateReason=opposite?'تدفق الأوامر الحي يعارض الاتجاه الأساسي.':'لم يكتمل تأكيد دخول مستقل من Order Flow؛ الميل وحده لا يكفي.';
+      x.decision='WAIT';x.entryType='WAIT';x.plan=null;
+      x.reason=opposite?'⛔ تم حجب الصفقة: تدفق الأوامر الحي يعارض اتجاهها.':'⏳ إشارة اتجاهية فقط؛ ننتظر تأكيد دخول Order Flow متوافقًا خلال آخر 30 ثانية.';
+    } else {
+      x.strategyGate='PASSED_WITH_ORDER_FLOW';
+      x.strategyGateReason='تأكيد دخول Order Flow متوافق وحديث؛ يسمح بعرض الخطة الأساسية.';
+      x.score=Math.min(100,(x.score||50)+5);
+    }
+  }
+  const dirs=['1w','1d','4h','30m'].map(tf=>{const z=m[tf]; if(!z)return null; const d=mtfDirection(z); return d.cls==='green'?'UP':d.cls==='red'?'DOWN':null;}).filter(Boolean);
+  if(!CFG.htfGate||dirs.length<3) return;
+  const up=dirs.filter(d=>d==='UP').length, down=dirs.filter(d=>d==='DOWN').length;
+  const higherConflict=(up>0&&down>0);
+  if((x.decision==='BUY'&&down>=2) || (x.decision==='SELL'&&up>=2) || (higherConflict&&Math.abs(up-down)<2)){
+    x.strategyGate='BLOCKED'; x.strategyGateReason='فلتر الاتجاه الأكبر غير متوافق؛ W1/D1/H4/M30 لا يدعمون اتجاه الصفقة بما يكفي.';
+    x.decision='WAIT'; x.entryType='WAIT'; x.plan=null; x.reason='⛔ فلتر الاستراتيجية القوية: تعارض الأطر العليا يمنع الصفقة بدلًا من إجبار السوق على اتجاه.';
+  } else { x.strategyGate='PASSED'; x.strategyGateReason='اتجاه الصفقة متوافق مع غالبية الأطر الأعلى.'; }
+  return x;
+}
+function aggregateDailyToWeekly(dailyBars){
+  // Biquote currently exposes OHLC through D1, not W1. Build W1 locally from D1.
+  const map=new Map();
+  for(const z of (dailyBars||[])){
+    const t=barTimeMs(z); if(!Number.isFinite(t)) continue;
+    const d=new Date(t);
+    // ISO week: Monday 00:00 UTC.
+    const day=(d.getUTCDay()+6)%7;
+    const monday=new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate()-day));
+    const k=monday.toISOString();
+    let w=map.get(k);
+    if(!w){w={openTime:k,open:Number(z.open),high:Number(z.high),low:Number(z.low),close:Number(z.close),volume:Number(z.volume)||0,tickVolume:Number(z.tickVolume)||0,isOpen:false};map.set(k,w);}
+    w.high=Math.max(w.high,Number(z.high));
+    w.low=Math.min(w.low,Number(z.low));
+    w.close=Number(z.close);
+    w.volume+=(Number(z.volume)||0);
+    w.tickVolume+=(Number(z.tickVolume)||0);
+    if(z.isOpen) w.isOpen=true;
+  }
+  return [...map.values()].sort((a,b)=>barTimeMs(a)-barTimeMs(b));
+}
+
+function aggregateBars(b,sec){
+  const out=[];let cur=null;
+  for(const z of (b||[])){const t=barTimeMs(z);if(!Number.isFinite(t))continue;const k=Math.floor(t/(sec*1000))*sec*1000;
+    if(!cur||cur._k!==k){if(cur)out.push(cur);cur={_k:k,openTime:new Date(k).toISOString(),open:Number(z.open),high:Number(z.high),low:Number(z.low),close:Number(z.close),volume:Number(z.volume)||0,tickVolume:Number(z.tickVolume)||0,isOpen:!!z.isOpen};continue;}
+    cur.high=Math.max(cur.high,Number(z.high));cur.low=Math.min(cur.low,Number(z.low));cur.close=Number(z.close);cur.volume+=Number(z.volume)||0;cur.tickVolume+=Number(z.tickVolume)||0;if(z.isOpen)cur.isOpen=true;}
+  if(cur)out.push(cur);
+  const now=Date.now();for(const z of out){if(now<z._k+sec*1000)z.isOpen=true;delete z._k;}
+  return out;
+}
+async function fetchBars(tf,n,timeout=9000){
+  const to=encodeURIComponent(new Date().toISOString());
+  if(tf==='3m'){
+    const o=await getJSON(`${API}/XAUUSD/ohlc?interval=1m&limit=${Math.min(1000,n*3+3)}&to=${to}&_=${Date.now()}`,timeout);
+    return aggregateBars(sortBarsNewestLast(o?.bars||[]),180);
+  }
+  const o=await getJSON(`${API}/XAUUSD/ohlc?interval=${tf}&limit=${n}&to=${to}&_=${Date.now()}`,timeout);
+  return sortBarsNewestLast(o?.bars||[]);
+}
+let mtfLoading=false;
+let mtfLastLoaded=0;
+async function loadMultiTF(force=false){
+  // MTF is a context layer. Do not start a new 7-request batch every 5 seconds;
+  // on mobile that creates overlapping fetches and leaves the grid stuck on "غير متاح".
+  const nowMs=Date.now();
+  if(mtfLoading) return;
+  if(!force && nowMs-mtfLastLoaded<20000 && Object.keys(state.multiTF||{}).length>=4){
+    renderMTF();
+    return;
+  }
+  mtfLoading=true;
+  try{
+    const results={...(state.multiTF||{})};
+    const now=new Date();
+    const supported=['5m','15m','30m','1h','4h','1d'];
+    // Fetch one timeframe at a time. This is slower by a few seconds but much more
+    // reliable on a phone and prevents concurrent requests from starving each other.
+    for(const tf of supported){
+      try{
+        const n=tf==='1d'?180:120;
+        const o=await getJSON(`${API}/XAUUSD/ohlc?interval=${tf}&limit=${n}&to=${encodeURIComponent(now.toISOString())}&_=${Date.now()}`,10000);
+        const bars=sortBarsNewestLast(o?.bars||[]);
+        if(bars.length<30) throw new Error('بيانات غير كافية: '+bars.length);
+        const last=bars.at(-1), t=state.tick||{mid:Number(last.close),bid:Number(last.close),ask:Number(last.close)};
+        results[tf]=calcForTimeframe(bars,t,tf);
+      }catch(e){
+        console.warn('MTF '+tf+' failed',e);
+        // Keep the previous valid value instead of replacing it with null.
+        if(!(results[tf])) results[tf]=null;
+      }
+    }
+
+    // W1 is derived locally from D1 because Biquote's OHLC API supports M1-D1, not W1.
+    try{
+      const o=await getJSON(`${API}/XAUUSD/ohlc?interval=1d&limit=180&to=${encodeURIComponent(now.toISOString())}&_=${Date.now()}`,10000);
+      const db=sortBarsNewestLast(o?.bars||[]), wb=aggregateDailyToWeekly(db);
+      if(wb.length>=20){
+        const last=wb.at(-1), t=state.tick||{mid:Number(last.close),bid:Number(last.close),ask:Number(last.close)};
+        results['1w']=calcForTimeframe(wb,t,'1w');
+      }else if(!results['1w']) results['1w']=null;
+    }catch(e){
+      console.warn('MTF 1w failed',e);
+      if(!results['1w']) results['1w']=null;
+    }
+
+    // M1 uses the currently loaded chart when possible; otherwise load it once.
+    if(state.tf==='1m' && state.calc){
+      results['1m']=state.calc;
+    }else if(!results['1m']){
+      try{
+        const o=await getJSON(`${API}/XAUUSD/ohlc?interval=1m&limit=120&to=${encodeURIComponent(now.toISOString())}&_=${Date.now()}`,10000);
+        const bars=sortBarsNewestLast(o?.bars||[]);
+        if(bars.length>=30){
+          const last=bars.at(-1), t=state.tick||{mid:Number(last.close),bid:Number(last.close),ask:Number(last.close)};
+          results['1m']=calcForTimeframe(bars,t,'1m');
+        }
+      }catch(e){console.warn('MTF 1m failed',e);}
+    }
+    state.multiTF=results;
+    mtfLastLoaded=Date.now();
+    applyStrategyGate();
+    render();
+    renderMTF();
+  }finally{
+    mtfLoading=false;
+  }
+}
+async function load(){
+ try{
+  $('status').textContent='جاري الاتصال بخادم Biquote...';
+  let tf=$('tf').value,n=+$('bars').value; state.tf=tf;state.n=n;
+  let bars=await fetchBars(tf,n), lag=feedLagSeconds(bars,tf), source=tf==='3m'?'OHLC 1m→3m':'OHLC';
+  // If the OHLC endpoint is stale, rebuild the recent candles from the live tick history.
+  if(lag>intervalSeconds(tf)*2+90){
+    try{
+      const h=await getJSON(`${API}/XAUUSD/history?count=1000&_=${Date.now()}`);
+      const hb=aggregateTicks(h?.ticks||h?.data||h?.history||[],tf);
+      if(hb.length>=3){bars=mergeRecentBars(bars,hb,tf);source='OHLC + tick-history';lag=feedLagSeconds(bars,tf);}
+    }catch(e){console.warn('tick history fallback failed',e)}
+  }
+  // Live tick is always fetched separately; it must never be mistaken for a candle timestamp.
+  let t=null,note='';
+  try{t=await getJSON(`${API}/XAUUSD?allowStale=false&_=${Date.now()}`)}
+  catch(e){try{t=await getJSON(`${API}/XAUUSD?allowStale=true&_=${Date.now()}`);note=t?.stale?' • آخر Tick متاح':' • Tick بديل'}catch(e2){note=' • لا يوجد Tick حي'}}
+  if(!t&&bars.length){let z=bars.at(-1);t={mid:Number(z.close),bid:Number(z.close),ask:Number(z.close),stale:true}}
+  state.bars=bars.slice(-Math.max(n,80));state.tick=t;state.source=source;state.feedLagSec=feedLagSeconds(state.bars,tf);state.feedFresh=state.feedLagSec<=intervalSeconds(tf)*2+90;
+  state.calc=calc(state.bars,t); const closed=state.bars.filter(z=>!z.isOpen); settleLivePredictions(closed); registerLivePrediction(state.calc,closed); applyStrategyGate(); render(); renderMTF(); loadMultiTF();
+  const lagText=Number.isFinite(state.feedLagSec)?` • تأخر الشموع ${Math.max(0,Math.round(state.feedLagSec))}ث`:' • وقت الشموع غير معروف';
+  $('status').textContent=`${state.feedFresh?'متصل':'⚠️ شموع متأخرة'} • ${source}${lagText}${note}`;
+ }catch(e){$('status').textContent='تعذر الاتصال بخادم Biquote: '+(e.name==='AbortError'?'انتهت مهلة الاتصال':(e.message||'خطأ غير معروف'))+' — اضغط تحديث الآن';console.error(e)}
+}
+async function refreshTick(){try{let t;try{t=await getJSON(`${API}/XAUUSD?allowStale=false`,7000)}catch(e){t=await getJSON(`${API}/XAUUSD?allowStale=true`,7000)}state.tick=t; const mid=Number(t?.mid??t?.price); if(Number.isFinite(mid)){updateJournal(mid);if(frozenSig&&state.calc){state.calc.px=mid;freezePlan(state.calc);}state.liveTicks.push({mid,time:Date.now()}); if(state.liveTicks.length>120)state.liveTicks=state.liveTicks.slice(-120);} if(state.calc){state.calc.px=(t.mid??t.price??state.calc.px);state.calc.preMove=preMoveReality(state.bars,t,state.liveTicks);renderLive();renderPreMove(state.calc);}}catch(e){}}
+function renderLive(){let t=state.tick,x=state.calc;if(!x||!t)return;let p=t.mid??t.price??x.px;x.px=p;$('price').textContent=fmt(p,2);$('quote').textContent=`Bid ${fmt(t?.bid,2)} • Ask ${fmt(t?.ask,2)} • ${t?.stale?'قديم':'حي'} • ${state.source}`;}
+function updateClock(){let d=new Date();let age=state.tick?.quoteAgeSeconds;let ageText=Number.isFinite(age)?` • Tick ${age.toFixed(1)}s`:' ';const barAge=Number.isFinite(state.feedLagSec)?` • شموع ${Math.round(state.feedLagSec)}s`:' • شموع —';const dz=d.toLocaleTimeString('ar-DZ',{timeZone:'Africa/Algiers',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});$('liveClock').textContent=`وقت الجزائر: ${dz} • Live: ${state.tick?.stale?'قديم':'حي'}${ageText}${barAge}`; }
+function renderPreMove(x){
+  const p=x?.preMove;if(!p)return;const box=$('preMoveState'),title=$('preMoveTitle'),reason=$('preMoveReason'),score=$('preMoveScore'),dir=$('preMoveDir'),details=$('preMoveDetails');if(!box)return;
+  title.textContent=p.dir==='UP'?'🟢 ضغط صاعد يتكوّن':p.dir==='DOWN'?'🔴 ضغط هابط يتكوّن':'🟡 لا ضغط حاسم';
+  title.className='big '+(p.dir==='UP'?'green':p.dir==='DOWN'?'red':'yellow');
+  box.className='decision '+(p.dir==='UP'?'buy':p.dir==='DOWN'?'sell':'watch'); reason.textContent=p.reason;score.textContent=p.score+'/100';score.className='value '+(p.score>=72?'green':p.score>=60?'yellow':'red');dir.textContent=p.dir==='UP'?'UP':p.dir==='DOWN'?'DOWN':'NEUTRAL';dir.className='value '+(p.dir==='UP'?'green':p.dir==='DOWN'?'red':'yellow');
+  details.textContent=`${p.state} • انكماش ${Math.round(p.compression*100)}% • ضغط الإغلاق ${p.closePressure>=0?'+':''}${p.closePressure.toFixed(2)} • سرعة ${p.velocity.toFixed(2)} ATR • Tick ${p.tickMove>=0?'+':''}${p.tickMove.toFixed(2)} ATR`;
+}
+function timingChecklist(x){
+  const side=x.timingSide||x.timing?.side;
+  if(!side) return '<div class="tag">⏳ لا توجد جهة مرشحة حاليًا: ننتظر اقتراب السعر من VAH/VAL مع تغير بنيوي واضح.</div>';
+  const isBuy=side==='BUY', trig=x.timing?.trigger;
+  const px=x.px;
+  const br=!!(isBuy?x.bullBreak:x.bearBreak), rt=!!(isBuy?x.bullRetest:x.bearRetest);
+  const flowOK=isBuy?x.flow>5:x.flow<-5, score=x.rawF?.[0]?.score??0, scoreOK=isBuy?score>.08:score<-.08;
+  const exhaustion=isBuy?x.signals?.bullExhaust:x.signals?.bearExhaust;
+  const failed=isBuy?x.signals?.failedBull:x.signals?.failedBear;
+  const items=[
+    [true,`المرشح: ${isBuy?'BUY صاعد':'SELL هابط'}`],
+    [Number.isFinite(trig),`Trigger: ${Number.isFinite(trig)?fmt(trig):'—'}`],
+    [br,`Break مغلق: ${br?'✓ مؤكد':'✗ غير مؤكد'} — ${isBuy?'إغلاق شمعة فوق Trigger/VAH':'إغلاق شمعة تحت Trigger/VAL'}`],
+    [rt,`Retest: ${rt?'✓ تحقق':'✗ لم يتحقق بعد'} — انتظار لمس منطقة Trigger`],
+    [flowOK,`Flow: ${flowOK?'✓ مؤيد':'✗ غير كافٍ'} (${x.flow>=0?'+':''}${fmt(x.flow,0)}%)`],
+    [scoreOK,`Forecast +1: ${scoreOK?'✓ متوافق':'✗ غير متوافق'} (${score.toFixed(2)})`],
+    [!exhaustion,`Exhaustion: ${exhaustion?'✗ يوجد إجهاد':'✓ لا يوجد إجهاد قوي'}`],
+    [!failed,`Failure: ${failed?'✗ فشل اختراق':'✓ لا يوجد فشل واضح'}`]
+  ];
+  const done=items.filter(z=>z[0]).length, total=items.length;
+  return `<div style="display:grid;gap:5px"><b>${isBuy?'🟢 BUY':'🔴 SELL'} — شروط الدخول ${done}/${total}</b>${items.slice(1).map(z=>`<div>${z[0]?'🟢':'🔴'} ${z[1]}</div>`).join('')}<div class="tag">${x.timing?.stage==='CONFIRMED ENTRY'?'تم استيفاء شروط التأكيد.':rt?'Retest تحقق؛ ننتظر استمرارًا مؤيدًا قبل الدخول.':br?'Break تحقق؛ ننتظر Retest.':'ننتظر Break مغلقًا أولًا؛ لا مطاردة للسعر.'}</div></div>`;
+}
+function forecastFactors(f,i,x){
+  const a=[]; if(f.score>0.08)a.push('زخم صاعد'); else if(f.score<-0.08)a.push('زخم هابط'); else a.push('زخم متوازن');
+  if(x.e20>x.e50)a.push('EMA صاعد'); else if(x.e20<x.e50)a.push('EMA هابط');
+  if(x.flow>8)a.push('Flow شراء'); else if(x.flow<-8)a.push('Flow بيع');
+  if(f.regime&&f.regime!=='BALANCED')a.push('Regime '+f.regime); return a.slice(0,4).join(' • ');
+}
+function entryLabel(x){const b=x.decision==='BUY',t=String(x.entryType||'');const kind=t.startsWith('MOMENTUM')?'دخول زخم':t.startsWith('REVERSAL')?'دخول انعكاس':'دخول مؤكد';return (b?'🟢 BUY — ':'🔴 SELL — ')+kind;}
+let _renderTimer=0,_lastRender=0;
+function render(){const gap=400,now=Date.now();if(now-_lastRender>=gap){_lastRender=now;renderNow();return;}if(_renderTimer)return;_renderTimer=setTimeout(()=>{_renderTimer=0;_lastRender=Date.now();try{renderNow();}catch(e){console.error(e)}},gap-(now-_lastRender));}
+function renderNow(){let x=state.calc,t=state.tick;if(!x)return;$('price').textContent=fmt(x.px,2);$('quote').textContent=`Bid ${fmt(t?.bid,2)} • Ask ${fmt(t?.ask,2)} • ${t?.stale?'قديم':'حي'} • ${state.source}`;$('structure').textContent=x.structure;$('structure').className='value '+(x.structure==='BULLISH'?'green':x.structure==='BEARISH'?'red':'yellow');$('structureSub').textContent=`Macro EMA20 ${fmt(x.e20)} / EMA50 ${fmt(x.e50)} • ${x.structure==='BEARISH SHIFT'||x.structure==='BULLISH SHIFT'?'Early Shift':'Macro'}`;$('score').textContent=Math.round(x.score)+'/100';$('scoreSub').textContent=`ATR ${fmt(x.A,2)} • ${x.signals.bullExhaust||x.signals.bearExhaust?'⚠️ إجهاد':'لا إجهاد مؤكد'}`;$('flow').textContent=(x.flow>=0?'+':'')+fmt(x.flow,0)+'%';$('flow').className='value '+(x.flow>10?'green':x.flow<-10?'red':'yellow');$('flowSub').textContent=x.flow>10?'ضغط شراء':x.flow<-10?'ضغط بيع':'ضغط متوازن';$('poc').textContent=fmt(x.vp.poc);$('vah').textContent=fmt(x.vp.vah);$('val').textContent=fmt(x.vp.val);$('atr').textContent=fmt(x.A);$('vpState').textContent=x.px<x.vp.val?'السعر تحت القيمة':x.px>x.vp.vah?'السعر فوق القيمة':'السعر داخل القيمة'; renderPreMove(x); renderMacroNews(); $('whaleMapSummary').textContent=x.liquidity?.summary||'—'; $('whaleZones').innerHTML=(x.liquidity?.zones||[]).map((z,i)=>`<div class="liqRow ${z.side.includes('دعم')?'liqBuy':'liqSell'}"><div class="row"><b>${i+1}. ${fmt(z.price)} — ${z.side}</b><span class="tag">قوة ${Math.round(z.score)}</span></div><div class="small">${z.types.join(' + ')} • ${z.why}</div></div>`).join('')||'لا توجد مناطق كافية.';
+let sig=[];
+if(x.signals.bullExhaust)sig.push('⚠️ إجهاد شرائي: تباطؤ/رفض/ضعف تدفق');
+if(x.signals.bearExhaust)sig.push('⚠️ إجهاد بيعي: تباطؤ/رفض/ضعف تدفق');
+if(x.signals.upperReject)sig.push('رفض علوي قرب VAH/POC');
+if(x.signals.lowerReject)sig.push('رفض سفلي قرب VAL/POC');
+if(x.signals.fdBull)sig.push('Flow divergence صاعد السعر / أضعف التدفق');
+if(x.signals.fdBear)sig.push('Flow divergence هابط السعر / أضعف التدفق');
+if(x.signals.slow)sig.push('Momentum يتباطأ');
+if(x.signals.liveBearShift)sig.push(`🔴 LIVE Bearish Shift — السعر الحي أقل من آخر إغلاق ${fmt(Math.abs(x.signals.liveMove),2)}`);
+if(x.signals.liveBullShift)sig.push(`🟢 LIVE Bullish Shift — السعر الحي أعلى من آخر إغلاق ${fmt(Math.abs(x.signals.liveMove),2)}`);
+if(x.signals.immediateBear)sig.push(`⚠️ Early Bearish Shift — Swing ${fmt(x.signals.microLevel)}`);
+if(x.signals.immediateBull)sig.push(`⚠️ Early Bullish Shift — Swing ${fmt(x.signals.microLevel)}`);
+if(x.signals.microBearRetest)sig.push('Retest هابط محلي متحقق');
+if(x.signals.microBullRetest)sig.push('Retest صاعد محلي متحقق');
+$('riskSignals').innerHTML=sig.length?sig.map(s=>`<div class="tag">${s}</div>`).join(''):'لا توجد إشارة إجهاد/انعكاس قوية حاليًا؛ يبقى القرار معتمدًا على التوقيت.';$('bo').textContent=fmt(x.bo);$('bd').textContent=fmt(x.bd);$('upper').textContent=fmt(x.upper);$('lower').textContent=fmt(x.lower);$('phase').innerHTML='<b>'+x.phase+'</b> — '+x.phaseReason+(x.timing&&Number.isFinite(x.timing.trigger)?` <span class="statepill">Trigger ${fmt(x.timing.trigger)} • Band ±${fmt(x.timing.band,2)}</span>`:'');
+$('stateSummary').innerHTML='<b>الحالة الحالية:</b> '+x.marketState+(x.strategyGate?` • <b>فلتر الاستراتيجية:</b> ${x.strategyGate==='PASSED'?'✅ متوافق':'⛔ محجوب'}`:'')+' — '+(x.marketState==='VALUE BALANCE'?'السعر داخل القيمة؛ الاتجاه وحده لا يكفي.':x.marketState==='CONSOLIDATION'?'حركة جانبية؛ ننتظر توسعًا.':x.marketState==='EDGE TEST'?'اختبار حافة القيمة؛ ننتظر قبولًا أو رفضًا.':'نراقب توسع الحركة والتأكيد.');
+$('timingStage').textContent=x.timing?.stage||'IDLE';$('timingTrigger').textContent=fmt(x.timing?.trigger);$('timingBand').textContent=fmt(x.timing?.band);$('timingQuality').textContent=(x.timingQuality||0)+'%';$('timingReason').textContent=x.timing?.reason||'—';$('timingChecklist').innerHTML=timingChecklist(x);
+const ps=x.pathState||{state:'WAIT',confidence:0,reason:'—'};
+const psMap={
+  CORRECTION:['↩️ CORRECTION','yellow'],
+  REVERSAL:['🔄 REVERSAL — تغيير المسار','red'],
+  MOVE_END:['⏸️ MOVE END — توقف الحركة','yellow'],
+  CONTINUATION:['➡️ CONTINUATION — استمرار','green'],
+  WAIT:['⏳ WAIT','yellow']
+};
+const pm=psMap[ps.state]||psMap.WAIT;
+$('pathStateTitle').textContent=pm[0];$('pathStateTitle').className='big '+pm[1];
+$('pathStateLabel').textContent=ps.state;
+$('pathConfidence').textContent=Math.round(ps.confidence||0)+'%';
+$('pathStateReason').textContent=ps.reason||'—';
+$('pathStateBox').className='decision '+(ps.state==='REVERSAL'?'sell':ps.state==='CONTINUATION'?'buy':'watch');
+$('marketStateTitle').textContent=x.marketState; $('marketStateReason').textContent=!x.feedFresh?`⚠️ ${Math.round(x.lagSec/60)} دقيقة تأخر في الشموع — لا نعتمد على توقيت قديم.`:x.marketState==='VALUE BALANCE'?'لا توجد فرصة مؤكدة الآن — السعر في توازن.':x.marketState==='CONSOLIDATION'?'السعر مستقر داخل نطاق ضيق؛ لا مطاردة.':(x.marketState==='EARLY BEARISH SHIFT'||x.marketState==='EARLY BULLISH SHIFT'||x.marketState==='LIVE BEARISH SHIFT'||x.marketState==='LIVE BULLISH SHIFT')?'تحول مبكر في البنية؛ ننتظر Retest ولا نطارد السعر.':x.phaseReason; $('marketState').className='decision '+(x.marketState==='EXPANSION'?'buy':'watch');
+$('decision').textContent=x.decision;$('decision').className='big '+(x.decision==='BUY'?'green':x.decision==='SELL'?'red':x.decision.includes('WATCH')?'yellow':'yellow');$('decisionTag').textContent=x.decision;$('reason').textContent=x.reason;$('decisionBox').className='decision '+(x.decision==='BUY'?'buy':x.decision==='SELL'?'sell':x.decision.includes('WATCH')?'watch':'');
+$('forecast').innerHTML=x.f.map((f,i)=>{const cls=f.dir.includes('BULLISH')?'green':f.dir.includes('BEARISH')?'red':'yellow';const dir=f.dir.includes('BULLISH')?'🟢 صعود':f.dir.includes('BEARISH')?'🔴 هبوط':'🟡 متوازن';return `<div class="metric" style="margin:8px 0;text-align:right"><div class="row"><b>+${i+1} — الشمعة ${i===0?'القادمة':i===1?'الثانية':'الثالثة'}</b><b class="${cls}">${dir}</b></div><div class="value">${fmt(f.price)}</div><div class="small">اتساق النموذج ${Math.round(f.confidence||0)}% • Score ${f.score.toFixed(2)} • الحركة ${fmt(f.move)} • ${f.regime||'BALANCED'}</div><div class="small">${forecastFactors(f,i,x)}</div></div>`}).join('');
+let active=x.decision==='BUY'||x.decision==='SELL';$('plan').style.display=active?'grid':'none';$('planEmpty').style.display=active?'none':'block';$('planStatus').textContent=active?`الحالة: ${entryLabel(x)} • جودة التوقيت ${x.timingQuality||0}%`:`الحالة: ${x.timing?.stage||'WAIT'} • ${x.reason||'ننتظر تأكيد شروط الدخول.'}`;renderAccuracy(state.bars.filter(z=>!z.isOpen));renderJournal();
+if(active&&x.plan){let p=x.plan,isBuy=x.decision==='BUY';$('tradeSide').textContent=isBuy?'🟢 BUY — شراء':'🔴 SELL — بيع';$('tradeSide').className='value '+(isBuy?'green':'red');$('entry').textContent=fmt(p.entry);$('sl').textContent=fmt(p.sl);$('tp1').textContent=fmt(p.tp1);$('tp2').textContent=fmt(p.tp2);$('tp3').textContent=fmt(p.tp3); if($('planStatus')) $('planStatus').title=`SL: ${p.slReason} • TP1: ${p.tpReasons[0]} • TP2: ${p.tpReasons[1]} • TP3: ${p.tpReasons[2]} • R:R صافي بعد السبريد ${p.rr1.toFixed(2)} / ${p.rr2.toFixed(2)} / ${p.rr3.toFixed(2)}`;}
+if(active&&x.plan){$('signalAlert').style.display='block';$('signalAlert').className='alert '+(x.decision==='BUY'?'buy':'sell');$('alertSignal').textContent=entryLabel(x);$('alertReason').textContent=x.reason;$('alertEntry').textContent=fmt(x.plan.entry);$('alertSL').textContent=fmt(x.plan.sl);$('alertTP1').textContent=fmt(x.plan.tp1);$('alertTP2').textContent=fmt(x.plan.tp2);$('alertTP3').textContent=fmt(x.plan.tp3);$('alertState').textContent=`${x.timing?.stage||'CONFIRMED ENTRY'} • Trigger ${fmt(x.timing?.trigger)}`;maybeNotifySignal(x);}else{$('signalAlert').style.display='none';}
+let tb=$('candles').querySelector('tbody');tb.innerHTML=state.bars.slice(-8).reverse().map((z,i)=>`<tr><td>${localTime(z.openTime)}</td><td>${fmt(z.open)}</td><td>${fmt(z.high)}</td><td>${fmt(z.low)}</td><td>${fmt(z.close)}</td><td class="${(z.close-z.open)>=0?'green':'red'}">${(z.close-z.open)>=0?'+':'-'}${fmt(Math.abs(z.close-z.open))}</td><td>${candleStructure(state.bars,state.bars.indexOf(z))}</td></tr>`).join('');draw(x)}
+function draw(x){let c=$('chart'),ctx=c.getContext('2d'),W=c.width,H=c.height;ctx.clearRect(0,0,W,H);let b=state.bars.slice(-80),lo=Math.min(...b.map(z=>z.low)),hi=Math.max(...b.map(z=>z.high)),pad=(hi-lo)*.08||1;lo-=pad;hi+=pad;let X=i=>i*(W-20)/(b.length-1)+10,Y=p=>H-10-(p-lo)*(H-20)/(hi-lo);ctx.strokeStyle='#26344f';ctx.lineWidth=1;for(let k=0;k<5;k++){let y=10+k*(H-20)/4;ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke()}[[x.vp.poc,'#ffc857'],[x.vp.vah,'#35df86'],[x.vp.val,'#ff5f78']].forEach(([p,col])=>{ctx.strokeStyle=col;ctx.setLineDash([6,5]);ctx.beginPath();ctx.moveTo(0,Y(p));ctx.lineTo(W,Y(p));ctx.stroke();ctx.setLineDash([])});b.forEach((z,i)=>{let xx=X(i),o=Y(z.open),cl=Y(z.close),h=Y(z.high),l=Y(z.low);ctx.strokeStyle=z.close>=z.open?'#35df86':'#ff5f78';ctx.beginPath();ctx.moveTo(xx,h);ctx.lineTo(xx,l);ctx.stroke();ctx.fillStyle=ctx.strokeStyle;ctx.fillRect(xx-3,Math.min(o,cl),6,Math.max(2,Math.abs(cl-o)))});ctx.fillStyle='#9aa9c4';ctx.font='12px system-ui';ctx.fillText('VAH '+fmt(x.vp.vah),10,18);ctx.fillText('POC '+fmt(x.vp.poc),10,34);ctx.fillText('VAL '+fmt(x.vp.val),10,50)}
+function bindCfg(){
+  const sp=$('cfgSpread'),rr=$('cfgRR'),mo=$('cfgMomentum'),of=$('cfgOF'),ht=$('cfgHTF');if(!sp)return;
+  sp.value=Number(CFG.spread).toFixed(2);rr.value=String(CFG.minRR);mo.checked=!!CFG.momentum;of.checked=!!CFG.ofGate;ht.checked=!!CFG.htfGate;
+  const apply=()=>{const v=parseFloat(sp.value);CFG.spread=Number.isFinite(v)&&v>=0?Math.min(5,v):0.30;{const q=parseFloat(rr.value);CFG.minRR=Number.isFinite(q)?q:0;}CFG.momentum=mo.checked;CFG.ofGate=of.checked;CFG.htfGate=ht.checked;saveCfg();frozenSig=null;resetTiming();load();};
+  [sp,rr,mo,of,ht].forEach(el=>el.addEventListener('change',apply));
+  $('jrReset').onclick=()=>{journal={open:null,closed:[]};saveJournal();renderJournal();};
+  renderJournal();
+}
+bindCfg();
+$('refresh').onclick=load; renderMTF();$('resetAccuracy').onclick=()=>{accuracy={pending:{},stats:{1:{n:0,hit:0,err:0},2:{n:0,hit:0,err:0},3:{n:0,hit:0,err:0}}};saveAccuracy();renderAccuracy(state.bars.filter(z=>!z.isOpen));};$('notify').onclick=requestSignalNotifications;$('testNotify').onclick=testNotification;$('tf').onchange=()=>{resetTiming();load();};$('bars').onchange=load;load();refreshTick();setInterval(load,5000);setInterval(refreshTick,1000);setInterval(updateClock,1000);setInterval(renderMacroNews,1000);updateClock();renderMacroNews();
+</script>
+
+<script>
+(function(){
+const $=id=>document.getElementById(id);
+let ws=null,wsDepth=null,wsTrade=null,reconnectTimer=null,run=false,endpointIndex=0,lastB=0,lastT=0,lastDepthEvent=0,lastTradeEvent=0,price=0,trades=[],book={b:[],a:[]},reconnectScheduled=false,connectionGeneration=0,watchdogTimer=null,connectStartedAt=0;
+let spoof='LOW',spoofScore=0,setupSide='NONE',setupSince=0,lastEntryAt=0,recent={high:null,low:null};
+let ofCandleHistory=[], ofCandleBucket=null;
+const OF_HISTORY_LIMIT=8;
+let wallMemory={b:new Map(),a:new Map()}, prevBook={b:[],a:[]}, wallStats={b:new Map(),a:new Map()}, spoofHistory={b:[],a:[]};
+const log=m=>{if(!$('ofLog'))return;$('ofLog').textContent='['+new Date().toLocaleTimeString()+'] '+m+'\n'+$('ofLog').textContent};
+const num=x=>Number(x)||0; const fmt2=x=>Number.isFinite(x)?x.toLocaleString(undefined,{maximumFractionDigits:2}):'—';
+function reset(){setupSide='NONE';setupSince=0;recent={high:null,low:null};ofCandleHistory=[];ofCandleBucket=null;trades=[];renderMultiCandleOF();
+updateDeepLiquidity.lastB=0;updateDeepLiquidity.lastA=0;book={b:[],a:[]};prevBook={b:[],a:[]};wallStats={b:new Map(),a:new Map()};spoofHistory={b:[],a:[]};spoofScore=0;lastB=lastT=0;price=0;wallMemory={b:new Map(),a:new Map()};ofEngine={symbol:$('ofSym')?.value||'XAUUSDT',side:'NONE',buy:0,sell:0,net:0,fresh:false,stage:'WAIT',reason:'ننتظر بيانات Order Flow الحقيقية من Binance.',price:0,confirmedEntry:null};renderBook();renderState({stage:'WAIT',side:null,conf:0,reason:'ننتظر بيانات Order Flow الحقيقية من Binance.'});['ofPrice','ofDelta','ofPressure','ofIntensity','ofImb','ofMicro','ofConfluence','ofNetScore','ofSweep','ofAbs','ofSpoof','ofLarge','ofBookAge','ofTradeAge'].forEach(id=>{if($(id))$(id).textContent=id==='ofSpoof'?'LOW':id==='ofLarge'?'0':'—'});}
+function closeSockets(){for(const s of [ws,wsDepth,wsTrade]){try{if(s){s.onopen=s.onmessage=s.onerror=s.onclose=null;s.close();}}catch(e){}}ws=wsDepth=wsTrade=null;}
+function startWatchdog(){if(watchdogTimer)clearInterval(watchdogTimer);watchdogTimer=setInterval(()=>{if(!run)return;const now=Date.now();const bookDead=lastB?(now-lastB>10000):(now-connectStartedAt>10000);const tradeDead=lastT&&(now-lastT>180000);if(bookDead||tradeDead){$('ofStatus').textContent='STALE / RECONNECTING';scheduleReconnect('بيانات Order Flow أصبحت قديمة');}},2000);}
+function stopWatchdog(){if(watchdogTimer)clearInterval(watchdogTimer);watchdogTimer=null;}
+function scheduleReconnect(reason='WebSocket closed'){
+  if(!run || reconnectScheduled) return;
+  reconnectScheduled=true;
+  $('ofStatus').textContent='RECONNECTING';
+  log('⚠️ '+reason+' — reconnecting in 1.5s');
+  if(reconnectTimer) clearTimeout(reconnectTimer);
+  reconnectTimer=setTimeout(()=>{reconnectTimer=null;reconnectScheduled=false;if(run)openSocket();},1500);
+}
+function stop(){run=false;connectionGeneration++;if(reconnectTimer)clearTimeout(reconnectTimer);reconnectTimer=null;reconnectScheduled=false;stopWatchdog();closeSockets();$('ofStatus').textContent='OFFLINE';reset();log('تم إيقاف Gold Order Flow');}
+function connect(){stop();run=true;endpointIndex=0;trades=[];book={b:[],a:[]};ofEngine.symbol=$('ofSym').value||'XAUUSDT';openSocket();}
+function unwrapMessage(raw){
+  // Combined streams wrap the payload as {stream, data}; raw streams do not.
+  if(raw && raw.data && typeof raw.data==='object') return raw.data;
+  return raw;
+}
+function openSocket(){
+  if(!run)return;
+  connectionGeneration++;
+  const generation=connectionGeneration;
+  closeSockets();
+  connectStartedAt=Date.now();
+  const sym=($('ofSym').value||'XAUUSDT').toLowerCase();
+  // Binance Futures retired the legacy fstream websocket URLs on 2026-04-23.
+  // Use the current public market-data endpoint.
+  // Binance split endpoints: depth is high-frequency PUBLIC data; aggTrade is MARKET data.
+  const depthUrl='wss://fstream.binance.com/public/ws/'+sym+'@depth20@100ms';
+  const tradeUrl='wss://fstream.binance.com/market/ws/'+sym+'@aggTrade';
+  $('ofStatus').textContent='CONNECTING';
+  log('CONNECT '+sym.toUpperCase()+' — PUBLIC depth20 + MARKET aggTrade');
+  try{wsDepth=new WebSocket(depthUrl);wsTrade=new WebSocket(tradeUrl);}catch(e){log('WebSocket init error: '+e.message);scheduleReconnect('WebSocket init error');return;}
+  let depthOK=false,tradeOK=false;
+  const checkLive=()=>{if(run&&generation===connectionGeneration&&(depthOK||tradeOK)){$('ofStatus').textContent=depthOK&&tradeOK?'LIVE':'PARTIAL';startWatchdog();}};
+  const fail=(name)=>{
+    if(!run||generation!==connectionGeneration)return;
+    if(name==='depth') depthOK=false; else tradeOK=false;
+    if(!depthOK&&!tradeOK) scheduleReconnect(name+' + trade streams closed');
+    else $('ofStatus').textContent='PARTIAL';
+  };
+  wsDepth.onopen=()=>{depthOK=true;checkLive();log('🟢 Depth OPEN — '+depthUrl);};
+  wsTrade.onopen=()=>{tradeOK=true;checkLive();log('🟢 AggTrade OPEN — '+tradeUrl);};
+  wsDepth.onmessage=e=>{if(generation!==connectionGeneration)return;try{const raw=JSON.parse(e.data),d=unwrapMessage(raw);if(d?.code||d?.msg){log('Binance depth error: '+(d.msg||d.code));return;}if(d?.e==='depthUpdate'||d?.b||d?.a||d?.bids||d?.asks)onDepth(d);}catch(x){log('depth parse error: '+x.message)}};
+  wsTrade.onmessage=e=>{if(generation!==connectionGeneration)return;try{const raw=JSON.parse(e.data),d=unwrapMessage(raw);if(d?.code||d?.msg){log('Binance trade error: '+(d.msg||d.code));return;}if(d?.e==='aggTrade'||d?.e==='trade'||d?.p||d?.price)onTrade(d);}catch(x){log('trade parse error: '+x.message)}};
+  wsDepth.onerror=()=>log('Depth WebSocket error');
+  wsTrade.onerror=()=>log('AggTrade WebSocket error');
+  wsDepth.onclose=e=>{log('Depth closed: code '+(e.code||'—')+(e.reason?' / '+e.reason:''));fail('depth');};
+  wsTrade.onclose=e=>{log('AggTrade closed: code '+(e.code||'—')+(e.reason?' / '+e.reason:''));fail('trade');};
+}
+function fallback(){scheduleReconnect('Fallback requested')}
+function onDepth(d){try{window.__flowFeed&&window.__flowFeed.depth(d)}catch(_e){}lastB=Date.now();lastDepthEvent=num(d.E??d.T??Date.now());const rawB=d.b||d.bids||[],rawA=d.a||d.asks||[];const b=rawB.map(x=>Array.isArray(x)?{p:num(x[0]),q:num(x[1])}:{p:num(x.price),q:num(x.qty)}).filter(x=>x.q>0).sort((a,b)=>b.p-a.p);const a=rawA.map(x=>Array.isArray(x)?{p:num(x[0]),q:num(x[1])}:{p:num(x.price),q:num(x.qty)}).filter(x=>x.q>0).sort((a,b)=>a.p-b.p);if(!b.length&&!a.length){log('⚠️ Depth message arrived but book is empty');return;}detectSpoof(prevBook.b,prevBook.a,b,a);prevBook={b:b.slice(0,20),a:a.slice(0,20)};book={b:b.slice(0,20),a:a.slice(0,20)};if(book.b[0]&&book.a[0]&&!price)price=(book.b[0].p+book.a[0].p)/2;else if(book.b[0]&&book.a[0])price=(book.b[0].p+book.a[0].p)/2;evaluate();renderBook();}
+function onTrade(d){try{window.__flowFeed&&window.__flowFeed.trade(d)}catch(_e){}lastT=Date.now();lastTradeEvent=num(d.E??d.T??Date.now());price=num(d.p??d.price);const q=num(d.q??d.qty),m=!!d.m; // m=true => buyer is maker => seller was aggressor
+const side=m?'S':'B';const trade={t:Date.now(),p:price,v:price*q,side,q};trades.push(trade);if(trades.length>12000)trades.shift();recordMultiCandleTrade(trade);evaluate();}
+function windowTrades(){const cut=Date.now()-(+$('ofWin').value)*1000;trades=trades.filter(x=>x.t>=cut);return trades;}
+function tradeStats(a){let B=0,S=0;for(const x of a){if(x.side==='B')B+=x.v;else S+=x.v}const t=B+S;return{B,S,t,delta:t?(B-S)/t*100:0};}
+function flowEvents(a){let sw='NONE',ab='NONE';const r=a.slice(-40),rr=a.slice(-80);if(r.length>=10){const p0=r[0].p,p1=r.at(-1).p,bc=r.filter(x=>x.side==='B'),sc=r.filter(x=>x.side==='S');const bv=bc.reduce((s,x)=>s+x.v,0),sv=sc.reduce((s,x)=>s+x.v,0);const range=Math.max(...r.map(x=>x.p))-Math.min(...r.map(x=>x.p));const threshold=Math.max(.03,price*.00007);if(bv>sv*1.7&&p1>p0&&range>=threshold)sw='BUY SWEEP';else if(sv>bv*1.7&&p1<p0&&range>=threshold)sw='SELL SWEEP';}
+const last=rr.slice(-50),vol=last.reduce((s,x)=>s+x.v,0),d=last.reduce((s,x)=>s+(x.side==='B'?x.v:-x.v),0),move=last.length?Math.abs(last.at(-1).p-last[0].p):0;const avgMove=last.length?last.reduce((s,x,i)=>i?s+Math.abs(x.p-last[i-1].p):s,0)/Math.max(1,last.length-1):0;const compression=Math.max(avgMove,.005)*2.2;if(vol&&Math.abs(d)/vol>.32&&move<compression){ab=d>0?'BUY ABSORB':'SELL ABSORB';}return{sw,ab};}
+function detectSpoof(oldB,oldA,newB,newA){
+  const now=Date.now();
+  const mid=(newB.length&&newA.length)?(newB[0].p+newA[0].p)/2:price;
+  const analyze=(oldSide,newSide,key)=>{
+    const oldMap=new Map(oldSide.map(x=>[x.p,x.q])), newMap=new Map(newSide.map(x=>[x.p,x.q]));
+    const avg=oldSide.length?oldSide.reduce((s,x)=>s+x.q,0)/oldSide.length:0;
+    const oldAvg=oldSide.length?oldSide.reduce((s,x)=>s+x.q,0)/oldSide.length:0;
+    const largeThreshold=Math.max(avg*2.5, oldAvg*2.0, 0.000001);
+    let largeAdd=0,largeCancel=0,partialCancel=0,nearCancel=0,nearAdd=0;
+    for(const x of newSide){
+      const prev=oldMap.get(x.p);
+      if(x.q>=largeThreshold && !prev) largeAdd++;
+      else if(x.q>=largeThreshold && prev && x.q>prev*1.5) largeAdd++;
+      if(mid && Math.abs(x.p-mid)/mid<=0.0008 && x.q>=largeThreshold) nearAdd++;
+    }
+    for(const x of oldSide){
+      const nq=newMap.get(x.p);
+      if(x.q<largeThreshold) continue;
+      let cancelled=false;
+      if(nq===undefined) cancelled=true;
+      else if(nq < x.q*0.35) cancelled=true;
+      if(cancelled){
+        largeCancel++;
+        if(nq!==undefined) partialCancel++;
+        if(mid && Math.abs(x.p-mid)/mid<=0.0012) nearCancel++;
+        const k=String(x.p);
+        const m=wallStats[key].get(k)||{first:now,last:now,max:x.q,cancel:0,adds:0};
+        m.cancel++;m.last=now;m.max=Math.max(m.max,x.q);wallStats[key].set(k,m);
+      }
+    }
+    const mem=wallStats[key];
+    for(const x of newSide){
+      if(x.q>=largeThreshold){
+        const k=String(x.p),m=mem.get(k)||{first:now,last:now,max:x.q,cancel:0,adds:0};
+        m.last=now;m.max=Math.max(m.max,x.q);m.adds++;mem.set(k,m);
+      }
+    }
+    for(const [k,m] of mem){if(now-m.last>12000)mem.delete(k);}
+    spoofHistory[key].push({t:now,add:largeAdd,cancel:largeCancel,nearAdd,nearCancel});
+    spoofHistory[key]=spoofHistory[key].filter(x=>now-x.t<12000);
+    const h=spoofHistory[key];
+    const cancels=h.reduce((s,x)=>s+x.cancel,0), adds=h.reduce((s,x)=>s+x.add,0);
+    const nearC=h.reduce((s,x)=>s+x.nearCancel,0), nearA=h.reduce((s,x)=>s+x.nearAdd,0);
+    const repeatCancel=h.filter(x=>x.cancel>0).length;
+    return {largeAdd,largeCancel,partialCancel,nearCancel,nearAdd,cancels,adds,nearC,nearA,repeatCancel};
+  };
+  const b=analyze(oldB,newB,'b'),a=analyze(oldA,newA,'a');
+  const totalCancel=b.cancels+a.cancels,totalAdd=b.adds+a.adds;
+  const nearCancel=b.nearC+a.nearC,nearAdd=b.nearA+a.nearA;
+  const repeat=(b.repeatCancel+a.repeatCancel);
+  let score=0;
+  score += Math.min(30,totalCancel*7);
+  score += Math.min(20,nearCancel*8);
+  score += Math.min(15,repeat*3);
+  if(totalAdd>0 && totalCancel/totalAdd>=0.55) score+=15;
+  if(totalAdd>=3 && totalCancel>=2) score+=10;
+  if(nearAdd>0 && nearCancel/Math.max(1,nearAdd)>=0.5) score+=10;
+  spoofScore=Math.max(0,Math.min(100,Math.round(score)));
+  spoof=spoofScore>=65?'HIGH':spoofScore>=35?'MEDIUM':'LOW';
+}
+function recordMultiCandleTrade(trade){
+  // Build true minute buckets from individual executed AggTrade events, not repeated rolling-window snapshots.
+  const bucketTime=Math.floor(trade.t/60000)*60000;
+  if(!ofCandleBucket || ofCandleBucket.t!==bucketTime){
+    if(ofCandleBucket && ofCandleBucket.n>0){ofCandleHistory.push(ofCandleBucket);if(ofCandleHistory.length>OF_HISTORY_LIMIT)ofCandleHistory.shift();}
+    ofCandleBucket={t:bucketTime,buy:0,sell:0,n:0,first:trade.p,last:trade.p};
+  }
+  if(trade.side==='B')ofCandleBucket.buy+=trade.v;else ofCandleBucket.sell+=trade.v;
+  ofCandleBucket.n++;ofCandleBucket.last=trade.p;
+  renderMultiCandleOF();
+}
+function renderMultiCandleOF(){
+  const h=ofCandleHistory.slice(-4);if(ofCandleBucket&&ofCandleBucket.n>0)h.push(ofCandleBucket);
+  const valid=h.filter(x=>x.n>0 && x.buy+x.sell>0).map(x=>({...x,delta:(x.buy-x.sell)/(x.buy+x.sell)*100}));
+  const enough=valid.length>=3;
+  if(!valid.length){
+    if($('ofMultiSide'))$('ofMultiSide').textContent='WAIT ⚪';
+    if($('ofMultiScore'))$('ofMultiScore').textContent='—';
+    if($('ofMultiPersist'))$('ofMultiPersist').textContent='—';
+    if($('ofMultiState'))$('ofMultiState').textContent='WAIT — TRADE FLOW';
+    if($('ofMultiReason'))$('ofMultiReason').textContent='ننتظر صفقات AggTrade المنفذة؛ دفتر الأوامر وحده لا يكفي لحساب قوة متعددة الشموع.';
+    return {side:'NONE',score:0,persist:0,state:'WAIT — TRADE FLOW',reason:'لا توجد صفقات منفذة كافية.',count:0};
+  }
+  let weighted=0,totalW=0,bull=0,bear=0;
+  valid.forEach((x,i)=>{const w=i+1;weighted+=x.delta*w;totalW+=w;if(x.delta>3)bull++;else if(x.delta< -3)bear++;});
+  const score=totalW?weighted/totalW:0,persist=Math.max(bull,bear)/valid.length*100;
+  let side=Math.abs(score)>=12?(score>0?'BUY':'SELL'):'NONE';
+  let state='MIXED';
+  if(!enough)state='COLLECTING DATA';
+  else if(side!=='NONE'&&persist>=60)state=side+' PERSISTENT';
+  else if(side!=='NONE')state=side+' DEVELOPING';
+  else if(bull>bear)state='BUY PRESSURE / WEAK';
+  else if(bear>bull)state='SELL PRESSURE / WEAK';
+  const reason=!enough?'نجمع شموع دقيقة مكتملة من الصفقات المنفذة؛ يلزم 3 فترات على الأقل قبل تقييم الاستمرار.':side==='BUY'&&persist>=60?'ضغط الشراء متوافق عبر عدة فترات منفصلة.':side==='SELL'&&persist>=60?'ضغط البيع متوافق عبر عدة فترات منفصلة.':'الضغط متداخل أو غير كافٍ؛ لا نفرض اتجاهًا.';
+  if($('ofMultiSide'))$('ofMultiSide').textContent=side==='BUY'?'BUY 🟢':side==='SELL'?'SELL 🔴':'MIXED ⚪';
+  if($('ofMultiScore'))$('ofMultiScore').textContent=(score>=0?'+':'')+score.toFixed(1)+'%';
+  if($('ofMultiPersist'))$('ofMultiPersist').textContent=Math.round(persist)+'%';
+  if($('ofMultiState'))$('ofMultiState').textContent=state;
+  if($('ofMultiReason'))$('ofMultiReason').textContent=reason;
+  return {side,score,persist,state,reason,count:valid.length};
+}
+function updateDeepLiquidity(){
+  if(!book.b.length||!book.a.length)return;
+  const b=book.b.slice(0,20),a=book.a.slice(0,20);
+  const B=b.reduce((s,x)=>s+x.q,0),A=a.reduce((s,x)=>s+x.q,0),tot=B+A,imb=tot?(B-A)/tot*100:0;
+  const bm=b.reduce((m,x)=>Math.max(m,x.q),0),am=a.reduce((m,x)=>Math.max(m,x.q),0);
+  const oldB=updateDeepLiquidity.lastB||0,oldA=updateDeepLiquidity.lastA||0;
+  const bc=oldB?((B-oldB)/oldB*100):0,ac=oldA?((A-oldA)/oldA*100):0;
+  updateDeepLiquidity.lastB=B;updateDeepLiquidity.lastA=A;
+  const state=imb>=15?'BUY LIQUIDITY':imb<=-15?'SELL LIQUIDITY':'BALANCED';
+  if($('deepBid'))$('deepBid').textContent=B.toFixed(3);if($('deepAsk'))$('deepAsk').textContent=A.toFixed(3);
+  if($('deepBidMax'))$('deepBidMax').textContent=bm.toFixed(3);if($('deepAskMax'))$('deepAskMax').textContent=am.toFixed(3);
+  if($('deepBidChg'))$('deepBidChg').textContent=(bc>=0?'+':'')+bc.toFixed(1)+'%';if($('deepAskChg'))$('deepAskChg').textContent=(ac>=0?'+':'')+ac.toFixed(1)+'%';
+  if($('liqBidShare'))$('liqBidShare').textContent=(tot?B/tot*100:50).toFixed(1)+'%';if($('liqAskShare'))$('liqAskShare').textContent=(tot?A/tot*100:50).toFixed(1)+'%';
+  if($('liqDeepImb'))$('liqDeepImb').textContent=(imb>=0?'+':'')+imb.toFixed(1)+'%';if($('liqDeepState'))$('liqDeepState').textContent=state;
+}
+function evaluate(){
+  if(!$('ofSignal'))return;
+  const symbol=$('ofSym').value||'XAUUSDT',now=Date.now(),ba=lastB?now-lastB:Infinity,ta=lastT?now-lastT:Infinity;
+  // Keep book-derived modules alive even when AggTrade is temporarily unavailable.
+  // The old guard returned before Deep Liquidity / Asymmetry could render, which
+  // made the whole new section show dashes while the Gold Book was clearly live.
+  if(lastB){
+    const B0=book.b.reduce((s,x)=>s+x.q,0), A0=book.a.reduce((s,x)=>s+x.q,0);
+    updateDeepLiquidity();
+    if($('ofBookAge'))$('ofBookAge').textContent=(ba/1000).toFixed(1)+'s';
+  }
+  if(lastT && $('ofTradeAge'))$('ofTradeAge').textContent=(ta/1000).toFixed(1)+'s';
+  if(!lastT){
+    if(lastB){
+      const B0=book.b.reduce((s,x)=>s+x.q,0),A0=book.a.reduce((s,x)=>s+x.q,0),tot0=B0+A0,imb0=tot0?(B0-A0)/tot0*100:0;
+      if($('ofPrice')&&price)$('ofPrice').textContent=fmt2(price);
+      if($('ofImb'))$('ofImb').textContent=(imb0>=0?'+':'')+imb0.toFixed(1)+'%';
+      if($('ofPressure'))$('ofPressure').textContent='BOOK B '+(tot0?B0/tot0*100:50).toFixed(1)+'% / S '+(tot0?A0/tot0*100:50).toFixed(1)+'%';
+      if($('ofTradeAge'))$('ofTradeAge').textContent='—';
+      if($('ofSignalTitle'))$('ofSignalTitle').textContent='WAIT — TRADE FLOW';
+      if($('ofSignalReason'))$('ofSignalReason').textContent='دفتر الأوامر حي؛ ننتظر AggTrade. Deep Liquidity وAsymmetry يعملان من الـBook.';
+      ofEngine.multi=renderMultiCandleOF();
+    }
+    return;
+  }
+  const bookAgeMs=lastDepthEvent?Math.max(0,Date.now()-lastDepthEvent):ba;const tradeAgeMs=lastTradeEvent?Math.max(0,Date.now()-lastTradeEvent):ta;$('ofBookAge').textContent=(bookAgeMs/1000).toFixed(1)+'s';$('ofTradeAge').textContent=(tradeAgeMs/1000).toFixed(1)+'s';
+  const fresh=ba<=5000&&ta<=30000;
+  ofEngine.symbol=symbol;ofEngine.fresh=fresh;ofEngine.price=price;
+  if(!fresh){ofEngine.side='NONE';ofEngine.buy=0;ofEngine.sell=0;ofEngine.net=0;ofEngine.stage='WAIT';ofEngine.reason='Order Flow متأخر؛ يُحجب كفلتر دخول.';renderState({stage:'WAIT',side:null,conf:0,reason:'حجب الدخول: بيانات Order Flow قديمة أو غير متصلة.'});updateOFConfluence();return;}
+  const a=windowTrades();if(!a.length){const B0=book.b.reduce((s,x)=>s+x.q,0),A0=book.a.reduce((s,x)=>s+x.q,0),imb0=(B0+A0)?(B0-A0)/(B0+A0)*100:0;ofEngine.buy=Math.max(0,Math.min(100,50+Math.round(imb0)));ofEngine.sell=Math.max(0,Math.min(100,50-Math.round(imb0)));ofEngine.net=ofEngine.buy-ofEngine.sell;ofEngine.side=Math.abs(imb0)>=15?(imb0>0?'BUY':'SELL'):'NONE';ofEngine.stage='WAIT — TRADE FLOW';ofEngine.reason='دفتر الأوامر حي، لكن لم تصل AggTrade بعد؛ لا نختلق Delta.';$('ofDelta').textContent='—';$('ofPressure').textContent='BOOK B '+Math.max(0,50+imb0/2).toFixed(1)+'% / S '+Math.max(0,50-imb0/2).toFixed(1)+'%';$('ofImb').textContent=(imb0>=0?'+':'')+imb0.toFixed(1)+'%';$('ofMicro').textContent='—';updateOFConfluence();renderState({stage:'WAIT — TRADE FLOW',side:null,conf:Math.round(Math.max(ofEngine.buy,ofEngine.sell)),reason:'دفتر الأوامر حي، ننتظر بيانات AggTrade الحقيقية لإكمال Delta/Pressure.'});return;}
+  const z=tradeStats(a),B=book.b.reduce((s,x)=>s+x.q,0),A=book.a.reduce((s,x)=>s+x.q,0),imb=(B+A)?(B-A)/(B+A)*100:0,bid=book.b[0],ask=book.a[0];
+  updateDeepLiquidity();
+  if(!bid||!ask){renderState({stage:'WAIT',side:null,conf:0,reason:'لا يوجد Top-20 Book صالح.'});ofEngine.side='NONE';updateOFConfluence();return;}
+  const mid=(bid.p+ask.p)/2,micro=(ask.p*bid.q+bid.p*ask.q)/(bid.q+ask.q),microBp=mid?(micro-mid)/mid*1e4:0;
+  const fe=flowEvents(a),short=tradeStats(a.filter(x=>x.t>=Date.now()-5000)),vals=a.map(x=>x.v).sort((u,v)=>u-v),p95=vals[Math.max(0,Math.floor(vals.length*.95)-1)]||0,large=a.filter(x=>x.v>=p95&&p95>0).length;
+  const recentA=a.slice(-30),lo=recentA.length?Math.min(...recentA.map(x=>x.p)):price,hi=recentA.length?Math.max(...recentA.map(x=>x.p)):price,prior=a.slice(-60,-30),priorLo=prior.length?Math.min(...prior.map(x=>x.p)):lo,priorHi=prior.length?Math.max(...prior.map(x=>x.p)):hi;
+  const sellSweep=fe.sw==='SELL SWEEP'&&lo<=priorLo&&price>lo,buySweep=fe.sw==='BUY SWEEP'&&hi>=priorHi&&price<hi;
+  const dispUp=short.delta>12&&price-(recentA[0]?.p||price)>Math.max(.05,price*.00010),dispDn=short.delta<-12&&(recentA[0]?.p||price)-price>Math.max(.05,price*.00010);
+  const shiftUp=(price>priorHi||price>mid*(1.00006))&&short.delta>5,shiftDn=(price<priorLo||price<mid*(.99994))&&short.delta<-5;
+  let buy=0,sell=0;if(z.delta>8)buy+=20;if(z.delta<-8)sell+=20;if(short.delta>10)buy+=15;if(short.delta<-10)sell+=15;if(imb>5||microBp>.20)buy+=15;if(imb<-5||microBp<-.20)sell+=15;if(fe.ab==='BUY ABSORB')buy+=18;if(fe.ab==='SELL ABSORB')sell+=18;if(dispUp)buy+=12;if(dispDn)sell+=12;if(sellSweep)buy+=12;if(buySweep)sell+=12;if(shiftUp)buy+=10;if(shiftDn)sell+=10;if(spoof==='HIGH'){buy=Math.max(0,buy-25);sell=Math.max(0,sell-25);}
+  buy=Math.min(100,Math.round(buy));sell=Math.min(100,Math.round(sell));
+  $('ofPrice').textContent=fmt2(price);$('ofDelta').textContent=(z.delta>=0?'+':'')+z.delta.toFixed(1)+'%';$('ofPressure').textContent='B '+(z.t?z.B/z.t*100:0).toFixed(1)+'% / S '+(z.t?z.S/z.t*100:0).toFixed(1)+'%';
+  const multi=renderMultiCandleOF(); ofEngine.multi=multi;$('ofIntensity').textContent=(a.length/(+$('ofWin').value)).toFixed(1)+'/s';$('ofImb').textContent=(imb>=0?'+':'')+imb.toFixed(1)+'%';$('ofMicro').textContent=(microBp>=0?'+':'')+microBp.toFixed(2)+'bp';$('ofSweep').textContent=fe.sw;$('ofAbs').textContent=fe.ab;$('ofSpoof').textContent=spoof+' '+spoofScore+'/100';$('ofLarge').textContent=large;
+  let side=buy>=sell&&buy>=60?'BUY':sell>buy&&sell>=60?'SELL':'NONE';
+  if(multi.count>=3 && multi.side!=='NONE' && multi.persist>=60 && side!==multi.side){ side='NONE'; }
+  if(multi.count>=3 && multi.side==='NONE' && Math.abs(multi.score)<8 && side!=='NONE'){ side='NONE'; }
+  ofEngine.buy=buy;ofEngine.sell=sell;ofEngine.net=buy-sell;ofEngine.side=side;ofEngine.stage=side==='BUY'?'SETUP BUY':side==='SELL'?'SETUP SELL':'WAIT';ofEngine.reason=side==='BUY'?'ضغط Order Flow صاعد':side==='SELL'?'ضغط Order Flow هابط':'لا يوجد تفوق واضح في التدفق';
+  updateOFConfluence();
+  if(a.length<12){renderState({stage:'WAIT',side:null,conf:0,reason:'البيانات تعمل. نجمع عينة حقيقية قبل استخدام Order Flow كفلتر دخول.'});return;}
+  let stage='WAIT',entrySide=null,reason='لا يوجد توافق كافٍ.';
+  if(buy>=60&&buy-sell>=12&&(sellSweep||fe.ab==='BUY ABSORB'||short.delta>12)){entrySide='BUY';stage='SETUP BUY';reason=symbol+' BUY setup: ضغط/سحب سيولة موجود؛ ننتظر displacement + structure + retest.';if(setupSide!=='BUY'){setupSide='BUY';setupSince=Date.now();recent.low=lo;}if(sellSweep)recent.low=lo;const ok=(price>recent.low)&&(imb>-8||microBp>.10)&&short.delta>5&&(shiftUp||dispUp||fe.ab==='BUY ABSORB')&&buy>=75&&buy-sell>=18&&spoof!=='HIGH'&&(sellSweep||fe.ab==='BUY ABSORB'||dispUp);if(ok&&Date.now()-setupSince>700){stage='BUY ENTRY';reason=symbol+' BUY ENTRY: Sweep + Delta + Book + Absorption/Displacement.';fireEntry('BUY',buy,recent.low);}}
+  else if(sell>=60&&sell-buy>=12&&(buySweep||fe.ab==='SELL ABSORB'||short.delta<-12)){entrySide='SELL';stage='SETUP SELL';reason=symbol+' SELL setup: ضغط/سحب سيولة موجود؛ ننتظر displacement + structure + retest.';if(setupSide!=='SELL'){setupSide='SELL';setupSince=Date.now();recent.high=hi;}if(buySweep)recent.high=hi;const ok=(price<recent.high)&&(imb<8||microBp<-.10)&&short.delta<-5&&(shiftDn||dispDn||fe.ab==='SELL ABSORB')&&sell>=75&&sell-buy>=18&&spoof!=='HIGH'&&(buySweep||fe.ab==='SELL ABSORB'||dispDn);if(ok&&Date.now()-setupSince>700){stage='SELL ENTRY';reason=symbol+' SELL ENTRY: Sweep + Delta + Book + Absorption/Displacement.';fireEntry('SELL',sell,recent.high);}}
+  else{setupSide='NONE';setupSince=0;if(buy>=sell&&buy>0)reason='BUY غير مكتمل: '+buy+'/100 — ننتظر trigger حقيقي.';else if(sell>0)reason='SELL غير مكتمل: '+sell+'/100 — ننتظر trigger حقيقي.';}
+  renderState({stage,side:entrySide,conf:Math.max(buy,sell),reason});
+}
+function updateOFConfluence(){
+  const e=ofEngine, el=$('ofConfluence'), ns=$('ofNetScore'); if(!el)return;
+  const net=e.net||0; if(ns)ns.textContent=(net>=0?'+':'')+net;
+  let txt='WAIT',cls='yellow';
+  if(!e.fresh)txt='STALE';
+  else if(e.side==='BUY'&&e.buy>=70){txt='BUY CONFIRM';cls='green';}
+  else if(e.side==='SELL'&&e.sell>=70){txt='SELL CONFIRM';cls='red';}
+  else if(Math.abs(net)>=15){txt=net>0?'BUY BIAS':'SELL BIAS';cls=net>0?'green':'red';}
+  el.textContent=txt;el.className='value '+cls;
+  window.goldOF=e;
+  try{window.dispatchEvent(new CustomEvent('goldofupdate',{detail:e}));}catch(_){}
+}
+
+function fireEntry(side,score,extreme){if(Date.now()-lastEntryAt<15000)return;lastEntryAt=Date.now();const tick=Math.max(.05,price*.0001);let sl,tp1,tp2;if(side==='BUY'){sl=extreme-tick;const risk=Math.max(price-sl,tick);tp1=price+risk;tp2=price+2*risk;}else{sl=extreme+tick;const risk=Math.max(sl-price,tick);tp1=price-risk;tp2=price-2*risk;}ofEngine.confirmedEntry={side,at:Date.now(),entry:price,sl,tp1,tp2,score};ofEngine.stage='ENTRY '+side;ofEngine.reason='تم اكتمال شروط Order Flow: Sweep/Delta/Book مع إشارة بنيوية مؤيدة.';renderState({stage:'ENTRY '+side,side,conf:score,reason:'ENTRY Gold بعد اكتمال التسلسل.',entry:price,sl,tp1,tp2});log('GOLD/PAXG ENTRY '+side+' @ '+fmt2(price)+' SL '+fmt2(sl)+' TP1 '+fmt2(tp1)+' TP2 '+fmt2(tp2));}
+function renderState(x){if(!$('ofStage'))return;const cls=x.side==='BUY'?'buy':x.side==='SELL'?'sell':'watch';$('ofSignal').className='decision '+cls;$('ofSignalTitle').textContent=x.stage||'WAIT';$('ofSignalTitle').className='big '+(x.side==='BUY'?'green':x.side==='SELL'?'red':'yellow');$('ofSignalReason').textContent=x.reason||'—';$('ofStage').textContent=x.stage||'WAIT';$('ofStageSub').textContent=x.side?'الاتجاه '+x.side:'لا دخول';$('ofConf').textContent=(x.conf||0)+'%';$('ofEntry').textContent=fmt2(x.entry);$('ofSL').textContent=fmt2(x.sl);$('ofTP1').textContent=fmt2(x.tp1);$('ofTP2').textContent=fmt2(x.tp2);$('ofBlockers').textContent=x.stage&&x.stage.startsWith('ENTRY')?'تم استيفاء شروط الدخول.':x.reason||'—';}
+function renderBook(){const n=Math.min(10,book.b.length,book.a.length);let html='';for(let i=0;i<n;i++){const b=book.b[i],a=book.a[i];html+=`<div class="bookRow"><span class="bid qty">${b.q.toLocaleString(undefined,{maximumFractionDigits:5})}</span><span class="bid price">${fmt2(b.p)}</span><span class="mid">│</span><span class="ask price">${fmt2(a.p)}</span><span class="ask qty">${a.q.toLocaleString(undefined,{maximumFractionDigits:5})}</span></div>`;}$('ofBookRows').innerHTML=html||'<div class="bookEmpty">بانتظار بيانات دفتر الأوامر...</div>';}
+window.addEventListener('goldofupdate',()=>{try{applyStrategyGate();render();}catch(e){console.warn('OF gate refresh',e)}});
+$('ofConnect').onclick=connect;$('ofStop').onclick=stop;$('ofSym').onchange=()=>{stop();connect()};$('ofWin').onchange=()=>{trades=[];setupSide='NONE';setupSince=0;log('Window changed — collecting fresh '+($('ofSym').value||'XAUUSDT')+' sample')};
+reset();log('READY — Free real Gold OF via Binance XAUUSDT/PAXG. No API key.');setTimeout(connect,800);
+})();
+</script>
+
+<script>if("serviceWorker"in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}))}</script>
+<script>
+(function(){
+  var KEY="xau_v21_tab",pages=document.querySelectorAll(".page"),btns=document.querySelectorAll("#tabbar button");
+  function show(id){
+    if(!document.getElementById("page-"+id)) id="home";
+    pages.forEach(function(p){p.classList.toggle("active",p.dataset.page===id)});
+    btns.forEach(function(b){b.classList.toggle("on",b.dataset.go===id); if(b.dataset.go===id) b.classList.remove("dot")});
+    try{localStorage.setItem(KEY,id)}catch(e){}
+    try{history.replaceState(null,"","#"+id)}catch(e){}
+    window.scrollTo(0,0);
+  }
+  btns.forEach(function(b){b.addEventListener("click",function(){show(b.dataset.go)})});
+  var start="home";
+  try{start=(location.hash||"").slice(1)||localStorage.getItem(KEY)||"home"}catch(e){}
+  show(start);
+})();
+</script>
+
+<script>
+/* ===== Order Blocks (V26 + OB) ===== */
+(function(){
+  function _atr(b,p){p=p||14;if(b.length<p+1)return 0;var s=0;for(var i=b.length-p;i<b.length;i++){s+=Math.max(b[i].high-b[i].low,Math.abs(b[i].high-b[i-1].close),Math.abs(b[i].low-b[i-1].close))}return s/p}
+  // كشف OB: شمعة عكسية ثم اندفاع (1-3 شموع) يغلق فوق/تحت مدى الشمعة بحركة >= 1.2 ATR ويكسر أعلى/أدنى آخر 5 شموع قبلها
+  function findOB(bars){
+    var out=[],n=bars.length,A=_atr(bars);if(n<25||!A)return out;
+    for(var i=5;i<n-1;i++){
+      var c=bars[i],bull=c.close>c.open,bear=c.close<c.open;
+      if(!bull&&!bear)continue;
+      var pH=-1e18,pL=1e18;for(var k=i-5;k<i;k++){pH=Math.max(pH,bars[k].high);pL=Math.min(pL,bars[k].low)}
+      // صاعد: الشمعة هابطة ثم اندفاع صاعد
+      if(bear){
+        for(var j=i+1;j<=Math.min(i+3,n-1);j++){
+          var mv=bars[j].close-c.high,hi=0;for(var q=i+1;q<=j;q++)hi=Math.max(hi,bars[q].high);
+          if(bars[j].close>c.high&&(hi-c.low)>=1.2*A&&bars[j].close>pH){out.push({side:'bull',i:i,lo:c.low,hi:c.high,strength:(hi-c.low)/A});break}
+        }
+      }
+      if(bull){
+        for(var j2=i+1;j2<=Math.min(i+3,n-1);j2++){
+          var lo=1e18;for(var q2=i+1;q2<=j2;q2++)lo=Math.min(lo,bars[q2].low);
+          if(bars[j2].close<c.low&&(c.high-lo)>=1.2*A&&bars[j2].close<pL){out.push({side:'bear',i:i,lo:c.low,hi:c.high,strength:(c.high-lo)/A});break}
+        }
+      }
+    }
+    // إلغاء المنطقة لو أُغلقت شمعة لاحقًا عبرها
+    var valid=[];
+    out.forEach(function(o){
+      var dead=false;
+      for(var k=o.i+2;k<n;k++){
+        if(o.side==='bull'&&bars[k].close<o.lo){dead=true;break}
+        if(o.side==='bear'&&bars[k].close>o.hi){dead=true;break}
+      }
+      if(!dead)valid.push(o);
+    });
+    // دمج مناطق متجاورة من نفس النوع: نحتفظ بالأقوى
+    var ded=[];valid.forEach(function(o){var p=ded[ded.length-1];if(p&&p.side===o.side&&o.i-p.i<=2){if(o.strength>p.strength)ded[ded.length-1]=o}else ded.push(o)});
+    return ded.slice(-8);
+  }
+  window.findOrderBlocks=findOB;
+
+  function f(x){return Number.isFinite(x)?x.toFixed(2):'—'}
+  var lastSig='';
+  function renderOB(){
+    var page=document.getElementById('page-ob');if(!page||!page.classList.contains('active'))return;
+    if(typeof state==='undefined'||!state.bars||state.bars.length<25){document.getElementById('obSummary').textContent='ننتظر بيانات الشموع...';return}
+    var bars=state.bars,last=bars[bars.length-1],sig=bars.length+'|'+last.close+'|'+last.high+'|'+last.low;
+    if(sig===lastSig)return;lastSig=sig;
+    var obs=findOB(bars),px=last.close;
+    obs.forEach(function(o){
+      var inside=px>=o.lo&&px<=o.hi;
+      var touched=false;for(var k=o.i+2;k<bars.length;k++){if(bars[k].low<=o.hi&&bars[k].high>=o.lo){touched=true;break}}
+      o.state=inside?'داخل المنطقة':(touched?'لُمست':'جديدة');
+      o.dist=o.side==='bull'?px-o.hi:o.lo-px;
+    });
+    // الشارت
+    var c=document.getElementById('obChart'),ctx=c.getContext('2d'),W=c.width,H=c.height;ctx.clearRect(0,0,W,H);
+    var N=80,off=Math.max(0,bars.length-N),b=bars.slice(off),lo=1e18,hi=-1e18;
+    b.forEach(function(z){lo=Math.min(lo,z.low);hi=Math.max(hi,z.high)});
+    obs.forEach(function(o){if(o.i>=off){lo=Math.min(lo,o.lo);hi=Math.max(hi,o.hi)}});
+    var pad=(hi-lo)*.08||1;lo-=pad;hi+=pad;
+    var X=function(i){return 10+i*(W-20)/Math.max(1,b.length-1)},Y=function(p){return H-10-(p-lo)*(H-20)/(hi-lo)};
+    ctx.strokeStyle='#26344f';ctx.lineWidth=1;for(var g=0;g<5;g++){var y=10+g*(H-20)/4;ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke()}
+    obs.forEach(function(o){
+      var x0=X(Math.max(0,o.i-off)),y1=Y(o.hi),y2=Y(o.lo);
+      ctx.fillStyle=o.side==='bull'?'rgba(53,223,134,.22)':'rgba(255,95,120,.22)';ctx.fillRect(x0,y1,W-x0,Math.max(2,y2-y1));
+      ctx.strokeStyle=o.side==='bull'?'#35df86':'#ff5f78';ctx.strokeRect(x0,y1,W-x0,Math.max(2,y2-y1));
+    });
+    try{if(state.calc&&state.calc.vp){ctx.strokeStyle='#ffc857';ctx.setLineDash([6,5]);ctx.beginPath();ctx.moveTo(0,Y(state.calc.vp.poc));ctx.lineTo(W,Y(state.calc.vp.poc));ctx.stroke();ctx.setLineDash([])}}catch(e){}
+    b.forEach(function(z,i){var xx=X(i),o=Y(z.open),cl=Y(z.close),h=Y(z.high),l=Y(z.low);ctx.strokeStyle=z.close>=z.open?'#35df86':'#ff5f78';ctx.beginPath();ctx.moveTo(xx,h);ctx.lineTo(xx,l);ctx.stroke();ctx.fillStyle=ctx.strokeStyle;ctx.fillRect(xx-3,Math.min(o,cl),6,Math.max(2,Math.abs(cl-o)))});
+    ctx.fillStyle='#eef3ff';ctx.font='13px system-ui';ctx.fillText(f(px),W-70,16);
+    // الجدول والملخص
+    var bulls=obs.filter(function(o){return o.side==='bull'&&o.dist>=-(o.hi-o.lo)}).sort(function(a,b){return Math.abs(a.dist)-Math.abs(b.dist)});
+    var bears=obs.filter(function(o){return o.side==='bear'&&o.dist>=-(o.hi-o.lo)}).sort(function(a,b){return Math.abs(a.dist)-Math.abs(b.dist)});
+    document.getElementById('obNearBull').textContent=bulls[0]?f(bulls[0].lo)+' – '+f(bulls[0].hi):'—';
+    document.getElementById('obNearBear').textContent=bears[0]?f(bears[0].lo)+' – '+f(bears[0].hi):'—';
+    var inside=obs.filter(function(o){return o.state==='داخل المنطقة'})[0];
+    document.getElementById('obSummary').textContent=
+      obs.length?(inside?('السعر داخل OB '+(inside.side==='bull'?'صاعد (طلب)':'هابط (عرض)')+' — راقب رد فعل الشمعة.'):('عدد المناطق الصالحة: '+obs.length+'.')):'ما فيه Order Blocks صالحة في الشموع الحالية.';
+    var tb=document.querySelector('#obTable tbody');
+    tb.innerHTML=obs.slice().reverse().map(function(o){
+      return '<tr><td class="'+(o.side==='bull'?'green':'red')+'">'+(o.side==='bull'?'صاعد':'هابط')+'</td><td>'+f(o.lo)+'</td><td>'+f(o.hi)+'</td><td>'+o.strength.toFixed(1)+'</td><td>'+(o.dist>=0?'+':'')+f(o.dist)+'</td><td>'+o.state+'</td></tr>';
+    }).join('')||'<tr><td colspan="6" class="empty">لا شيء</td></tr>';
+  }
+  setInterval(renderOB,1200);
+  document.addEventListener('click',function(e){if(e.target.closest&&e.target.closest('#tabbar button')){lastSig='';setTimeout(renderOB,50)}});
+  window.renderOB=renderOB;
+})();
+</script>
+<script src="flow.js"></script>
+</body>
+</html>

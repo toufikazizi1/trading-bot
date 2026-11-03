@@ -69,6 +69,16 @@ body{padding-bottom:calc(76px + env(safe-area-inset-bottom,0px))}
 .cfgGrid{display:grid;grid-template-columns:1fr 1fr;gap:9px}.cfgGrid label{display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--muted)}.cfgGrid input,.cfgGrid select{background:#0c1422;color:var(--txt);border:1px solid #2a3956;border-radius:12px;padding:11px;font-size:15px;width:100%}.cfgToggle{display:flex!important;flex-direction:row!important;align-items:center;justify-content:space-between;background:#0b1322;border:1px solid #202d45;border-radius:12px;padding:11px;grid-column:1/-1;color:var(--txt)!important;font-size:13px!important}.cfgToggle input{width:22px;height:22px;flex:0 0 auto}
 .log{white-space:pre-wrap;font-size:11px;line-height:1.6;color:var(--muted);max-height:220px;overflow:auto;direction:ltr;text-align:left}
 </style>
+<style>
+#tabbar{overflow-x:auto;scrollbar-width:none}#tabbar::-webkit-scrollbar{display:none}#tabbar button{flex:1 0 58px}
+#page-flow canvas{width:100%;display:block;border-radius:12px;border:1px solid #202d45}
+.flCtl{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px}.flCtl select,.flCtl input,.flCtl button{background:#0b1322;color:var(--txt);border:1px solid #202d45;border-radius:10px;padding:7px 9px;font-family:inherit;font-size:13px}.flCtl input{width:64px}
+.flKpi{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.flKpi .metric{padding:9px 6px}.flKpi .value{font-size:16px}.flKpi .label{font-size:11.5px}
+#flLadder{position:relative;max-height:420px;overflow:auto;border:1px solid #202d45;border-radius:12px;background:#060d1a;direction:ltr;font-variant-numeric:tabular-nums}
+.flRow{display:grid;grid-template-columns:1fr 1fr 1fr 70px;font-size:12px;border-bottom:1px solid #0f1a2c}.flRow span{padding:4px 6px;text-align:right;white-space:nowrap}.flHead{position:sticky;top:0;background:#0b1322;color:var(--muted);font-size:11px;z-index:1}
+.flRow .flP{background:#0b1322;color:#cdd7ee;font-weight:700}.flNow{outline:1px solid var(--blue);outline-offset:-1px}.flNow .flP{background:#2563eb;color:#fff}
+.flList{max-height:300px;overflow:auto;direction:ltr;font-variant-numeric:tabular-nums}.flTr{display:flex;justify-content:space-between;gap:10px;padding:5px 4px;border-bottom:1px solid #0f1a2c;font-size:12.5px}.flTr.g{color:var(--green)}.flTr.r{color:var(--red)}
+</style>
 </head>
 <body>
 <div class="wrap">
@@ -319,6 +329,38 @@ body{padding-bottom:calc(76px + env(safe-area-inset-bottom,0px))}
   </div>
 
 </section>
+<section class="page" id="page-flow" data-page="flow">
+<div class="pageIntro"><b>🌊 خريطة التدفق</b> — Order Flow وVolume Profile حقيقيان من صفقات ودفتر أوامر Binance Futures (XAUUSDT). السيولة، الصفقات المنفذة، Delta وCVD، كلها لحظية. هذي بيانات سوق Binance وليست سوق MT5.</div>
+  <div class="card">
+    <div class="flCtl">
+      <b id="flStatus" style="color:var(--red)">غير متصل</b>
+      <select id="flStep"><option value="0.1">شريحة 0.1</option><option value="0.25">0.25</option><option value="0.5" selected>0.5</option><option value="1">1.0</option></select>
+      <select id="flRange"><option value="8">±8$</option><option value="15">±15$</option><option value="20" selected>±20$</option><option value="40">±40$</option></select>
+      <label style="font-size:12px;color:var(--muted)">صفقة كبيرة ≥ <input id="flBig" type="number" value="5" min="0.1" step="0.5"></label>
+      <button id="flReset" type="button">تصفير الجلسة</button>
+    </div>
+    <div class="flKpi">
+      <div class="metric"><div class="label">BID</div><div id="flBid" class="value">—</div></div>
+      <div class="metric"><div class="label">ASK</div><div id="flAsk" class="value">—</div></div>
+      <div class="metric"><div class="label">السبريد</div><div id="flSpr" class="value">—</div></div>
+      <div class="metric"><div class="label">POC</div><div id="flPoc" class="value">—</div></div>
+      <div class="metric"><div class="label">VWAP</div><div id="flVwap" class="value">—</div></div>
+      <div class="metric"><div class="label">CVD</div><div id="flCvdV" class="value">—</div></div>
+      <div class="metric"><div class="label">حجم شراء</div><div id="flBuy" class="value green">—</div></div>
+      <div class="metric"><div class="label">حجم بيع</div><div id="flSell" class="value red">—</div></div>
+      <div class="metric"><div class="label">ميزان الدفتر</div><div id="flBook" class="value">—</div></div>
+    </div>
+  </div>
+  <div class="card"><h3 style="margin-top:0">خريطة السيولة الحرارية + الصفقات (آخر 5 دقائق)</h3>
+    <canvas id="flHeat" data-h="360"></canvas>
+    <div class="note" style="margin-top:6px">اللون = حجم الأوامر الواقفة في الدفتر عند كل سعر (أزرق قليل ← أصفر/أبيض كبير). الدوائر = صفقات منفذة: <span class="green">خضراء مشتري مبادر</span>، <span class="red">حمراء بائع مبادر</span>.</div></div>
+  <div class="card"><h3 style="margin-top:0">سلم الأسعار: Delta • Volume Profile • سيولة الدفتر</h3>
+    <div id="flLadder"></div>
+    <div class="note" style="margin-top:6px">DELTA = (شراء − بيع) منفذ عند السعر منذ فتح الصفحة. VP = الحجم الكلي. COB = الأوامر الواقفة الحالية (أخضر طلب، أحمر عرض).</div></div>
+  <div class="card"><h3 style="margin-top:0">CVD — الحجم التراكمي (Delta)</h3><canvas id="flCvd" data-h="130"></canvas></div>
+  <div class="card"><h3 style="margin-top:0">آخر الصفقات المنفذة</h3><div id="flTape" class="flList"></div></div>
+  <div class="card"><h3 style="margin-top:0">سجل أحداث السيولة</h3><div id="flEvents" class="flList"></div></div>
+</section>
 <section class="page" id="page-ob" data-page="ob">
 <div class="pageIntro"><b>🧱 Order Blocks</b> — مناطق الشموع المؤسسية المحتملة: آخر شمعة عكسية قبل حركة اندفاعية كسرت الهيكل. تُحذف المنطقة لما السعر يغلق عبرها.</div>
   <div class="card">
@@ -410,7 +452,7 @@ body{padding-bottom:calc(76px + env(safe-area-inset-bottom,0px))}
 </div>
 </div>
 
-<nav id="tabbar"><button type="button" data-go="home"><span class="ni">🏠</span><span class="nl">القرار</span></button><button type="button" data-go="hybrid"><span class="ni">⚡</span><span class="nl">Gold OF</span></button><button type="button" data-go="timing"><span class="ni">🎯</span><span class="nl">التوقيت</span></button><button type="button" data-go="forecast"><span class="ni">🔮</span><span class="nl">التنبؤ</span></button><button type="button" data-go="chart"><span class="ni">📈</span><span class="nl">السيولة</span></button><button type="button" data-go="news"><span class="ni">📰</span><span class="nl">الأخبار</span></button><button type="button" data-go="ob"><span class="ni">🧱</span><span class="nl">Order Block</span></button><button type="button" data-go="settings"><span class="ni">⚙️</span><span class="nl">الإعدادات</span></button></nav>
+<nav id="tabbar"><button type="button" data-go="home"><span class="ni">🏠</span><span class="nl">القرار</span></button><button type="button" data-go="hybrid"><span class="ni">⚡</span><span class="nl">Gold OF</span></button><button type="button" data-go="timing"><span class="ni">🎯</span><span class="nl">التوقيت</span></button><button type="button" data-go="forecast"><span class="ni">🔮</span><span class="nl">التنبؤ</span></button><button type="button" data-go="chart"><span class="ni">📈</span><span class="nl">السيولة</span></button><button type="button" data-go="news"><span class="ni">📰</span><span class="nl">الأخبار</span></button><button type="button" data-go="flow"><span class="ni">🌊</span><span class="nl">التدفق</span></button><button type="button" data-go="ob"><span class="ni">🧱</span><span class="nl">Order Block</span></button><button type="button" data-go="settings"><span class="ni">⚙️</span><span class="nl">الإعدادات</span></button></nav>
 
 <script>
 const API='https://biquote.io/api';
@@ -1757,8 +1799,8 @@ function openSocket(){
   wsTrade.onclose=e=>{log('AggTrade closed: code '+(e.code||'—')+(e.reason?' / '+e.reason:''));fail('trade');};
 }
 function fallback(){scheduleReconnect('Fallback requested')}
-function onDepth(d){lastB=Date.now();lastDepthEvent=num(d.E??d.T??Date.now());const rawB=d.b||d.bids||[],rawA=d.a||d.asks||[];const b=rawB.map(x=>Array.isArray(x)?{p:num(x[0]),q:num(x[1])}:{p:num(x.price),q:num(x.qty)}).filter(x=>x.q>0).sort((a,b)=>b.p-a.p);const a=rawA.map(x=>Array.isArray(x)?{p:num(x[0]),q:num(x[1])}:{p:num(x.price),q:num(x.qty)}).filter(x=>x.q>0).sort((a,b)=>a.p-b.p);if(!b.length&&!a.length){log('⚠️ Depth message arrived but book is empty');return;}detectSpoof(prevBook.b,prevBook.a,b,a);prevBook={b:b.slice(0,20),a:a.slice(0,20)};book={b:b.slice(0,20),a:a.slice(0,20)};if(book.b[0]&&book.a[0]&&!price)price=(book.b[0].p+book.a[0].p)/2;else if(book.b[0]&&book.a[0])price=(book.b[0].p+book.a[0].p)/2;evaluate();renderBook();}
-function onTrade(d){lastT=Date.now();lastTradeEvent=num(d.E??d.T??Date.now());price=num(d.p??d.price);const q=num(d.q??d.qty),m=!!d.m; // m=true => buyer is maker => seller was aggressor
+function onDepth(d){try{window.__flowFeed&&window.__flowFeed.depth(d)}catch(_e){}lastB=Date.now();lastDepthEvent=num(d.E??d.T??Date.now());const rawB=d.b||d.bids||[],rawA=d.a||d.asks||[];const b=rawB.map(x=>Array.isArray(x)?{p:num(x[0]),q:num(x[1])}:{p:num(x.price),q:num(x.qty)}).filter(x=>x.q>0).sort((a,b)=>b.p-a.p);const a=rawA.map(x=>Array.isArray(x)?{p:num(x[0]),q:num(x[1])}:{p:num(x.price),q:num(x.qty)}).filter(x=>x.q>0).sort((a,b)=>a.p-b.p);if(!b.length&&!a.length){log('⚠️ Depth message arrived but book is empty');return;}detectSpoof(prevBook.b,prevBook.a,b,a);prevBook={b:b.slice(0,20),a:a.slice(0,20)};book={b:b.slice(0,20),a:a.slice(0,20)};if(book.b[0]&&book.a[0]&&!price)price=(book.b[0].p+book.a[0].p)/2;else if(book.b[0]&&book.a[0])price=(book.b[0].p+book.a[0].p)/2;evaluate();renderBook();}
+function onTrade(d){try{window.__flowFeed&&window.__flowFeed.trade(d)}catch(_e){}lastT=Date.now();lastTradeEvent=num(d.E??d.T??Date.now());price=num(d.p??d.price);const q=num(d.q??d.qty),m=!!d.m; // m=true => buyer is maker => seller was aggressor
 const side=m?'S':'B';const trade={t:Date.now(),p:price,v:price*q,side,q};trades.push(trade);if(trades.length>12000)trades.shift();recordMultiCandleTrade(trade);evaluate();}
 function windowTrades(){const cut=Date.now()-(+$('ofWin').value)*1000;trades=trades.filter(x=>x.t>=cut);return trades;}
 function tradeStats(a){let B=0,S=0;for(const x of a){if(x.side==='B')B+=x.v;else S+=x.v}const t=B+S;return{B,S,t,delta:t?(B-S)/t*100:0};}
@@ -2065,5 +2107,6 @@ reset();log('READY — Free real Gold OF via Binance XAUUSDT/PAXG. No API key.')
   window.renderOB=renderOB;
 })();
 </script>
+<script src="flow.js"></script>
 </body>
 </html>
