@@ -8,7 +8,7 @@
       "side": "SELL",
       "stage": "PRE-TRIGGER",
       "trigger": 77097.55,
-      "band": 5.99142857142801,
+      "band": 5.690571428571503,
       "broken_at": 0,
       "confirmed_at": 0,
       "reason": "\u0646\u0646\u062a\u0638\u0631 \u062a\u0623\u0643\u064a\u062f \u0627\u0644\u0627\u0633\u062a\u0645\u0631\u0627\u0631 \u062e\u0627\u0631\u062c 77,097.55.",
@@ -43,11 +43,11 @@
     "timing": {
       "side": "SELL",
       "stage": "PRE-TRIGGER",
-      "trigger": 3929.6715,
+      "trigger": 3930.022,
       "band": 0.35,
       "broken_at": 0,
       "confirmed_at": 0,
-      "reason": "\u0646\u0646\u062a\u0638\u0631 \u062a\u0623\u0643\u064a\u062f \u0627\u0644\u0627\u0633\u062a\u0645\u0631\u0627\u0631 \u062e\u0627\u0631\u062c 3,929.67.",
+      "reason": "\u0646\u0646\u062a\u0638\u0631 \u062a\u0623\u0643\u064a\u062f \u0627\u0644\u0627\u0633\u062a\u0645\u0631\u0627\u0631 \u062e\u0627\u0631\u062c 3,930.02.",
       "closed_break": false
     }
   }
