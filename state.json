@@ -5,13 +5,13 @@
     "open_signal": null,
     "consecutive_losses": 1,
     "timing": {
-      "side": "BUY",
+      "side": "SELL",
       "stage": "PRE-TRIGGER",
-      "trigger": 77380.7825,
-      "band": 13.259571428571466,
+      "trigger": 75582.2975,
+      "band": 15.00171428571451,
       "broken_at": 0,
       "confirmed_at": 0,
-      "reason": "\u0646\u0646\u062a\u0638\u0631 \u062a\u0623\u0643\u064a\u062f \u0627\u0644\u0627\u0633\u062a\u0645\u0631\u0627\u0631 \u062e\u0627\u0631\u062c 77,380.78.",
+      "reason": "\u0646\u0646\u062a\u0638\u0631 \u062a\u0623\u0643\u064a\u062f \u0627\u0644\u0627\u0633\u062a\u0645\u0631\u0627\u0631 \u062e\u0627\u0631\u062c 75,582.30.",
       "closed_break": false
     },
     "pause_until": null
@@ -41,13 +41,13 @@
       }
     },
     "timing": {
-      "side": "BUY",
+      "side": "SELL",
       "stage": "PRE-TRIGGER",
-      "trigger": 4103.304,
+      "trigger": 4066.7785,
       "band": 0.35,
       "broken_at": 0,
       "confirmed_at": 0,
-      "reason": "\u0646\u0646\u062a\u0638\u0631 \u062a\u0623\u0643\u064a\u062f \u0627\u0644\u0627\u0633\u062a\u0645\u0631\u0627\u0631 \u062e\u0627\u0631\u062c 4,103.30.",
+      "reason": "\u0646\u0646\u062a\u0638\u0631 \u062a\u0623\u0643\u064a\u062f \u0627\u0644\u0627\u0633\u062a\u0645\u0631\u0627\u0631 \u062e\u0627\u0631\u062c 4,066.78.",
       "closed_break": false
     }
   }
