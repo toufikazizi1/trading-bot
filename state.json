@@ -2,14 +2,8 @@
   "XBTUSD": {
     "label": "BTC/USDT",
     "last_sent": "2026-11-05T02:30:04.617320+00:00",
-    "open_signal": {
-      "direction": "SELL",
-      "entry": 80606.9,
-      "sl": 80644.15142857142,
-      "tp1": 80569.64857142857,
-      "opened_at": "2026-11-05T02:30:04.617320+00:00"
-    },
-    "consecutive_losses": 2,
+    "open_signal": null,
+    "consecutive_losses": 0,
     "timing": {
       "side": null,
       "stage": "IDLE",
