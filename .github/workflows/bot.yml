@@ -32,7 +32,7 @@ jobs:
           BOT_WEEKEND_FILTER_SYMBOLS: "PAXGUSD"
           BOT_FAST_ENTRY: "1"
           BOT_SCALP_MODE: "1"
-          BOT_SCALP_SYMBOLS: "XBTUSD"
+          BOT_SCALP_SYMBOLS: "XBTUSD,PAXGUSD"
           BOT_SCALP_SL_ATR: "0.8"
           BOT_SCALP_TP_R: "1.2,1.8,2.5"
           BOT_SCALP_MAX_MINUTES: "20"
