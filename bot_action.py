@@ -64,6 +64,22 @@ NEWS_FILTER_SYMBOLS = {s.strip().upper() for s in os.environ.get("BOT_NEWS_FILTE
 NEWS_WINDOW_MINUTES = int(os.environ.get("BOT_NEWS_WINDOW_MINUTES", "30"))
 # فلتر الأطر الكبيرة (30m / 4h / 1d): يمنع صفقة عكس اتجاه أغلبية الأطر — مأخوذ من XAU V26
 HTF_FILTER = os.environ.get("BOT_HTF_FILTER", "1") == "1"
+
+# وضع السكالب: ستوب وأهداف ضيقة مبنية على ATR الشمعة (1m)، فلتر 30m فقط (بلا 4h/1d)،
+# وانتهاء صلاحية الإشارة بعد N دقيقة (لا تُحسب ربح ولا خسارة).
+SCALP_MODE = os.environ.get("BOT_SCALP_MODE", "0") == "1"
+SCALP_SYMBOLS = {s.strip().upper() for s in os.environ.get("BOT_SCALP_SYMBOLS", "XBTUSD").split(",") if s.strip()}
+SCALP_SL_ATR = float(os.environ.get("BOT_SCALP_SL_ATR", "0.8"))             # مسافة الستوب = × ATR
+SCALP_TP_R = tuple(float(v) for v in os.environ.get("BOT_SCALP_TP_R", "1.2,1.8,2.5").split(","))  # الأهداف بمضاعفات المخاطرة
+SCALP_MIN_RISK_PCT = float(os.environ.get("BOT_SCALP_MIN_RISK_PCT", "0.0004"))  # أدنى ستوب = 0.04% من السعر (حماية من الرسوم/الضجيج)
+SCALP_MAX_MINUTES = float(os.environ.get("BOT_SCALP_MAX_MINUTES", "20"))
+SCALP_HTF_FRAMES = tuple(s.strip() for s in os.environ.get("BOT_SCALP_HTF_FRAMES", "30m").split(",") if s.strip())
+
+
+def is_scalp(symbol):
+    return SCALP_MODE and symbol.upper() in SCALP_SYMBOLS
+
+
 NEWS_EVENTS = [
     ("2026-10-02T08:30:00-04:00", "Employment Situation / NFP"),
     ("2026-10-07T14:00:00-04:00", "FOMC Minutes"),
@@ -640,6 +656,23 @@ def market_plan(a, px, decision, liquidity):
     }
 
 
+def scalp_plan(a, px, decision):
+    """خطة سكالب: SL = SCALP_SL_ATR × ATR (بحد أدنى نسبة من السعر)، والأهداف بمضاعفات المخاطرة."""
+    if decision not in ("BUY", "SELL"):
+        return None
+    side = 1 if decision == "BUY" else -1
+    risk = max(a * SCALP_SL_ATR, px * SCALP_MIN_RISK_PCT)
+    tps = [px + side * risk * r for r in SCALP_TP_R[:3]]
+    while len(tps) < 3:
+        tps.append(None)
+    return {
+        "entry": px, "sl": px - side * risk,
+        "tp1": tps[0], "tp2": tps[1], "tp3": tps[2],
+        "risk": risk, "scalp": True,
+        "tp_reasons": [f"{r}R" for r in SCALP_TP_R[:3]],
+    }
+
+
 # ------------------------------------------------------------------
 # آلة حالة التوقيت Break → Retest → Confirm (محفوظة في state.json)
 # ------------------------------------------------------------------
@@ -991,6 +1024,13 @@ def check_open_signal_outcome(symbol_state, price):
     direction, tp1, sl = open_signal["direction"], open_signal.get("tp1"), open_signal["sl"]
     if tp1 is None:
         return
+    if open_signal.get("scalp"):
+        age_min = minutes_since(open_signal.get("opened_at"))
+        hit_now = (direction == "BUY" and (price >= tp1 or price <= sl)) or (direction == "SELL" and (price <= tp1 or price >= sl))
+        if not hit_now and age_min is not None and age_min >= SCALP_MAX_MINUTES:
+            symbol_state["open_signal"] = None
+            log(f"⏱️ إشارة سكالب {symbol_state.get('label','')} انتهت صلاحيتها بعد {age_min:.0f} دقيقة (لا ربح ولا خسارة)")
+            return
     hit_tp = (direction == "BUY" and price >= tp1) or (direction == "SELL" and price <= tp1)
     hit_sl = (direction == "BUY" and price <= sl) or (direction == "SELL" and price >= sl)
     if hit_tp:
@@ -1034,13 +1074,15 @@ def format_entry_signal(label, x):
     for i, key in enumerate(("tp1", "tp2", "tp3"), start=1):
         if plan.get(key) is not None:
             tp_lines += f"TP{i}: {plan[key]:,.2f}\n"
+    tag = "SCALP " if plan.get("scalp") else ""
+    expiry = f"⏱️ صلاحية الإشارة: {SCALP_MAX_MINUTES:.0f} دقيقة\n" if plan.get("scalp") else ""
     return (
-        f"{icon} <b>XAU Engine V21 — {x['decision']}</b>\n"
+        f"{icon} <b>XAU Engine V21 — {tag}{x['decision']}</b>\n"
         f"الرمز: {label}\n"
         f"التاريخ: {ts}\n\n"
         f"نقطة الدخول (سعر لحظة الإرسال): {plan['entry']:,.2f}\n"
         f"SL: {plan['sl']:,.2f}\n"
-        f"{tp_lines}\n"
+        f"{tp_lines}{expiry}\n"
         f"عمر آخر شمعة: {x.get('data_age', 0):.0f}ث\n"
         f"ATR: {x['atr']:.2f} | Order Flow: {x['flow']:+.1f} | البنية: {x['structure']}\n"
         f"مسار الحركة: {x['path_state']['state']} ({x['path_state']['confidence']}%)\n"
@@ -1105,8 +1147,11 @@ def htf_trend(symbol, interval):
 
 def htf_blocks(symbol, decision):
     """True لو غالبية الأطر الكبيرة تعاكس الصفقة. عند فشل الجلب لا نمنع."""
+    scalp = is_scalp(symbol)
+    frames = SCALP_HTF_FRAMES if scalp else ("30m", "4h", "1d")
+    need = 1 if scalp else 2  # سكالب: يكفي أن يعاكس إطار 30m
     dirs = []
-    for tf in ("30m", "4h", "1d"):
+    for tf in frames:
         try:
             d = htf_trend(symbol, tf)
         except Exception as e:
@@ -1116,7 +1161,7 @@ def htf_blocks(symbol, decision):
             dirs.append(d)
     up, down = dirs.count("UP"), dirs.count("DOWN")
     log(f"HTF {symbol}: {dirs}")
-    return (decision == "BUY" and down >= 2) or (decision == "SELL" and up >= 2)
+    return (decision == "BUY" and down >= need) or (decision == "SELL" and up >= need)
 
 
 def process_symbol(symbol, label, state):
@@ -1146,6 +1191,9 @@ def process_symbol(symbol, label, state):
     check_open_signal_outcome(symbol_state, px)
     maybe_trigger_circuit_breaker(symbol_state, label)
     x = compute_engine(candles, px, symbol_state)
+    scalp = is_scalp(symbol)
+    if scalp and x["decision"] in ("BUY", "SELL") and x["atr"] > 0:
+        x["plan"] = scalp_plan(x["atr"], px, x["decision"]) or x["plan"]
 
     now_iso = datetime.now(timezone.utc).isoformat()
     if x["decision"] in ("BUY", "SELL") and x["plan"]:
@@ -1182,12 +1230,16 @@ def process_symbol(symbol, label, state):
                 if abs(fresh - px) > x["atr"] * MAX_ENTRY_DRIFT_ATR:
                     log(f"{label}: {x['decision']} skipped, price moved {abs(fresh - px):.2f} before send")
                     return
-                x["plan"] = market_plan(x["atr"], fresh, x["decision"], x["liquidity"]) or x["plan"]
+                if scalp:
+                    x["plan"] = scalp_plan(x["atr"], fresh, x["decision"]) or x["plan"]
+                else:
+                    x["plan"] = market_plan(x["atr"], fresh, x["decision"], x["liquidity"]) or x["plan"]
             x["data_age"] = datetime.now(timezone.utc).timestamp() - candles[-1]["open_time"]
             notify(format_entry_signal(label, x))
             symbol_state["open_signal"] = {
                 "direction": x["decision"], "entry": x["plan"]["entry"],
                 "sl": x["plan"]["sl"], "tp1": x["plan"]["tp1"], "opened_at": now_iso,
+                "scalp": bool(x["plan"].get("scalp")),
             }
             symbol_state["last_sent"] = now_iso
             log(f"{label}: signal sent {x['decision']}")
