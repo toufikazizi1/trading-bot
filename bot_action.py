@@ -43,7 +43,7 @@ INTERVAL = os.environ.get("BOT_INTERVAL", "1m")
 LOOKBACK_BARS = int(os.environ.get("BOT_LOOKBACK_BARS", "80"))  # نفس n=80 الأصلي
 WEEKEND_FILTER = os.environ.get("BOT_WEEKEND_FILTER", "1") == "1"
 # الرموز اللي تتبع عطلة سوق الفوركس التقليدي (الذهب فقط افتراضياً — البيتكوين والكريبتو عموماً يتداولو 24/7 بلا عطلة)
-WEEKEND_FILTER_SYMBOLS = {s.strip().upper() for s in os.environ.get("BOT_WEEKEND_FILTER_SYMBOLS", "PAXGUSD").split(",") if s.strip()}
+WEEKEND_FILTER_SYMBOLS = {s.strip().upper() for s in os.environ.get("BOT_WEEKEND_FILTER_SYMBOLS", "XAUUSD,PAXGUSD").split(",") if s.strip()}
 # دخول سريع: يدخل عند أول اختراق مؤكد بلا انتظار Retest، بشرط
 # ضغط وتوقع قويين متفقين. أسرع، لكن خطر الدخول في اختراق وهمي أعلى قليلاً.
 FAST_ENTRY = os.environ.get("BOT_FAST_ENTRY", "1") == "1"
@@ -60,7 +60,7 @@ HOURLY_UPDATE_MINUTES = int(os.environ.get("BOT_HOURLY_UPDATE_MINUTES", "60"))
 
 # فلتر الأخبار: لا إشارات قبل/بعد أخبار HIGH (CPI/NFP/FOMC...) — مأخوذ من XAU V26
 NEWS_FILTER = os.environ.get("BOT_NEWS_FILTER", "1") == "1"
-NEWS_FILTER_SYMBOLS = {s.strip().upper() for s in os.environ.get("BOT_NEWS_FILTER_SYMBOLS", "PAXGUSD").split(",") if s.strip()}
+NEWS_FILTER_SYMBOLS = {s.strip().upper() for s in os.environ.get("BOT_NEWS_FILTER_SYMBOLS", "XAUUSD,PAXGUSD").split(",") if s.strip()}
 NEWS_WINDOW_MINUTES = int(os.environ.get("BOT_NEWS_WINDOW_MINUTES", "30"))
 # فلتر الأطر الكبيرة (30m / 4h / 1d): يمنع صفقة عكس اتجاه أغلبية الأطر — مأخوذ من XAU V26
 HTF_FILTER = os.environ.get("BOT_HTF_FILTER", "1") == "1"
@@ -105,6 +105,73 @@ STATE_FILE = "state.json"
 KRAKEN_OHLC_URL = "https://api.kraken.com/0/public/OHLC"
 KRAKEN_TICKER_URL = "https://api.kraken.com/0/public/Ticker"
 KRAKEN_INTERVAL_MINUTES = {"1m": 1, "5m": 5, "15m": 15, "30m": 30, "1h": 60, "4h": 240, "1d": 1440}
+
+# الذهب الحقيقي XAU/USD يأتي من Biquote (نفس مصدر xau_live_bot.py والـPWA)، وليس PAXG.
+# عند فشل الجلب يتوقف فحص الرمز فقط (لا استبدال ببيانات PAXG).
+BIQUOTE_API = "https://biquote.io/api"
+BIQUOTE_SYMBOLS = {"XAUUSD"}
+BIQUOTE_HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) XAU-Live-Paper-Bot"}
+
+
+def is_biquote(pair):
+    return pair.upper() in BIQUOTE_SYMBOLS
+
+
+def _to_epoch(v):
+    if isinstance(v, (int, float)):
+        return float(v / 1000 if v > 1e12 else v)
+    s = str(v).strip()
+    if s.isdigit():
+        n = float(s)
+        return n / 1000 if n > 1e12 else n
+    import re
+    if ("T" in s or " " in s) and not (s.endswith("Z") or re.search(r"[+-]\d\d:?\d\d$", s)):
+        s = s.replace(" ", "T") + "Z"
+    return datetime.fromisoformat(s.replace("Z", "+00:00")).timestamp()
+
+
+def get_klines_biquote(pair, interval, limit=300):
+    to = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+    resp = requests.get(f"{BIQUOTE_API}/{pair.upper()}/ohlc",
+                        params={"interval": interval, "limit": limit, "to": to,
+                                "_": int(datetime.now(timezone.utc).timestamp() * 1000)},
+                        headers=BIQUOTE_HEADERS, timeout=15)
+    resp.raise_for_status()
+    bars = []
+    for z in (resp.json().get("bars") or []):
+        try:
+            bars.append({
+                "open_time": int(_to_epoch(z.get("openTime") or z.get("timestamp") or z.get("time"))),
+                "open": float(z["open"]), "high": float(z["high"]),
+                "low": float(z["low"]), "close": float(z["close"]),
+                "volume": float(z.get("volume") or z.get("tickVolume") or 0),
+            })
+        except (KeyError, TypeError, ValueError):
+            continue
+    if not bars:
+        raise RuntimeError(f"Biquote: لا توجد شموع لـ {pair}")
+    bars.sort(key=lambda b: b["open_time"])
+    return bars[-limit:] if limit else bars
+
+
+def get_ticker_biquote(pair):
+    try:
+        try:
+            r = requests.get(f"{BIQUOTE_API}/{pair.upper()}", params={"allowStale": "false"},
+                             headers=BIQUOTE_HEADERS, timeout=8)
+            r.raise_for_status()
+        except Exception:
+            r = requests.get(f"{BIQUOTE_API}/{pair.upper()}", params={"allowStale": "true"},
+                             headers=BIQUOTE_HEADERS, timeout=8)
+            r.raise_for_status()
+        t = r.json()
+        mid = t.get("mid", t.get("price"))
+        if mid is None and t.get("bid") is not None and t.get("ask") is not None:
+            mid = (float(t["bid"]) + float(t["ask"])) / 2
+        return float(mid) if mid is not None else None
+    except Exception as e:
+        log(f"تعذر جلب سعر Biquote: {e}")
+        return None
 
 
 # ------------------------------------------------------------------
@@ -172,6 +239,8 @@ def is_forex_market_closed(now=None):
 # جلب البيانات من Kraken
 # ------------------------------------------------------------------
 def get_klines(pair, interval, limit=300):
+    if is_biquote(pair):
+        return get_klines_biquote(pair, interval, limit)
     minutes = KRAKEN_INTERVAL_MINUTES.get(interval)
     if minutes is None:
         raise ValueError(f"فترة زمنية غير مدعومة: {interval}")
@@ -196,6 +265,8 @@ def get_klines(pair, interval, limit=300):
 
 def get_ticker_price(pair):
     """آخر سعر تداول حقيقي لحظة التشغيل — تقريبنا لـ 'px' (السعر الحي) في الملف الأصلي."""
+    if is_biquote(pair):
+        return get_ticker_biquote(pair)
     try:
         resp = requests.get(KRAKEN_TICKER_URL, params={"pair": pair}, timeout=10)
         resp.raise_for_status()

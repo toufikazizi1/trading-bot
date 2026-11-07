@@ -25,14 +25,14 @@ jobs:
         run: pip install -r requirements.txt
       - name: Run bot check
         env:
-          BOT_SYMBOLS: "XBTUSD|BTC/USDT,PAXGUSD|GOLD (PAXG)"
+          BOT_SYMBOLS: "XBTUSD|BTC/USDT,XAUUSD|GOLD (XAU/USD)"
           BOT_INTERVAL: "1m"
           BOT_LOOKBACK_BARS: "80"
           BOT_WEEKEND_FILTER: "1"
-          BOT_WEEKEND_FILTER_SYMBOLS: "PAXGUSD"
+          BOT_WEEKEND_FILTER_SYMBOLS: "XAUUSD"
           BOT_FAST_ENTRY: "1"
           BOT_SCALP_MODE: "1"
-          BOT_SCALP_SYMBOLS: "XBTUSD,PAXGUSD"
+          BOT_SCALP_SYMBOLS: "XBTUSD,XAUUSD"
           BOT_SCALP_SL_ATR: "0.8"
           BOT_SCALP_TP_R: "1.2,1.8,2.5"
           BOT_SCALP_MAX_MINUTES: "20"
