@@ -263,10 +263,36 @@ def get_klines(pair, interval, limit=300):
     return candles[-limit:] if limit else candles
 
 
+# سرفر الأسعار اللحظي (price_server.py): لو BOT_PRICE_SERVER_URL مضبوط، السعر يجي منه أولاً
+# (WebSocket دائم، عمر السعر بالملّي ثانية)، ولو واقف أو السعر قديم نرجع لـ REST كالعادة.
+PRICE_SERVER_URL = os.environ.get("BOT_PRICE_SERVER_URL", "").rstrip("/")
+PRICE_SERVER_MAX_AGE = float(os.environ.get("BOT_PRICE_SERVER_MAX_AGE", "5"))
+_LOCAL_HTTP = requests.Session()
+_LOCAL_HTTP.trust_env = False  # لا proxy للاتصال المحلي
+
+
+def get_ticker_price_server(pair):
+    if not PRICE_SERVER_URL:
+        return None
+    try:
+        r = _LOCAL_HTTP.get(f"{PRICE_SERVER_URL}/price", params={"symbol": pair}, timeout=1.0)
+        if r.status_code != 200:
+            return None
+        j = r.json()
+        if float(j.get("age", 1e9)) > PRICE_SERVER_MAX_AGE:
+            return None
+        return float(j["price"])
+    except Exception:
+        return None
+
+
 def get_ticker_price(pair):
     """آخر سعر تداول حقيقي لحظة التشغيل — تقريبنا لـ 'px' (السعر الحي) في الملف الأصلي."""
     if is_biquote(pair):
         return get_ticker_biquote(pair)
+    live = get_ticker_price_server(pair)
+    if live is not None:
+        return live
     try:
         resp = requests.get(KRAKEN_TICKER_URL, params={"pair": pair}, timeout=10)
         resp.raise_for_status()

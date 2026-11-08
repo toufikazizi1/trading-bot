@@ -39,6 +39,11 @@ jobs:
           BOT_HOURLY_UPDATE_MINUTES: "60"
           BOT_MAX_CONSECUTIVE_LOSSES: "3"
           BOT_CIRCUIT_BREAKER_PAUSE_HOURS: "4"
+          # سرفر الأسعار اللحظي (WebSocket) للبيتكوين + حلقة فحص أسرع. لو واقف البوت يرجع لـ REST.
+          BOT_PRICE_SERVER_URL: "http://127.0.0.1:8765"
+          BOT_PRICE_SERVER_MAX_AGE: "5"
+          PRICE_SERVER_SYMBOLS: "XBTUSD"
+          BOT_LOOP_SECONDS: "15"
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
@@ -57,13 +62,19 @@ jobs:
             done
             return 0
           }
+          # سرفر الأسعار اللحظي في الخلفية (لو وقع، البوت يستعمل REST تلقائياً)
+          python price_server.py > price_server.log 2>&1 &
+          PS_PID=$!
+          trap 'kill $PS_PID 2>/dev/null || true' EXIT
+          sleep 2
+          LOOP=${BOT_LOOP_SECONDS:-60}
           END=$((SECONDS + 20400))
           LAST=$SECONDS
           while [ $SECONDS -lt $END ]; do
             T0=$SECONDS
             python bot_action.py || true
             if [ $((SECONDS - LAST)) -ge 300 ]; then save_state; LAST=$SECONDS; fi
-            D=$((60 - (SECONDS - T0)))
+            D=$((LOOP - (SECONDS - T0)))
             [ $D -gt 0 ] && sleep $D
           done
           save_state
