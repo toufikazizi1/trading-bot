@@ -56,23 +56,16 @@
     "timing": {
       "side": "BUY",
       "stage": "PRE-TRIGGER",
-      "trigger": 4125.49585,
-      "band": 0.4375414285714221,
+      "trigger": 4124.7805,
+      "band": 0.40835571428569634,
       "broken_at": 0,
       "confirmed_at": 0,
-      "reason": "\u0646\u0646\u062a\u0638\u0631 \u062a\u0623\u0643\u064a\u062f \u0627\u0644\u0627\u0633\u062a\u0645\u0631\u0627\u0631 \u062e\u0627\u0631\u062c 4,125.50.",
+      "reason": "\u0646\u0646\u062a\u0638\u0631 \u062a\u0623\u0643\u064a\u062f \u0627\u0644\u0627\u0633\u062a\u0645\u0631\u0627\u0631 \u062e\u0627\u0631\u062c 4,124.78.",
       "closed_break": false
     },
     "last_sent": "2026-11-10T09:44:51.797977+00:00",
-    "open_signal": {
-      "direction": "SELL",
-      "entry": 4083.859,
-      "sl": 4085.874142857143,
-      "tp1": 4081.4408285714285,
-      "opened_at": "2026-11-10T09:44:51.797977+00:00",
-      "scalp": true
-    },
-    "consecutive_losses": 0,
+    "open_signal": null,
+    "consecutive_losses": 1,
     "pause_until": null
   }
 }
