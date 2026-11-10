@@ -61,15 +61,8 @@
       "reason": "\u0644\u0627 \u064a\u0648\u062c\u062f Trigger \u0635\u0627\u0644\u062d."
     },
     "last_sent": "2026-11-10T09:10:51.267807+00:00",
-    "open_signal": {
-      "direction": "SELL",
-      "entry": 4092.601,
-      "sl": 4097.461457142857,
-      "tp1": 4086.7684514285716,
-      "opened_at": "2026-11-10T09:10:51.267807+00:00",
-      "scalp": true
-    },
-    "consecutive_losses": 1,
+    "open_signal": null,
+    "consecutive_losses": 2,
     "pause_until": null
   }
 }
