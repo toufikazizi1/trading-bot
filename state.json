@@ -6,13 +6,13 @@
     "consecutive_losses": 0,
     "timing": {
       "side": "SELL",
-      "stage": "PRE-TRIGGER",
-      "trigger": 74164.5,
-      "band": 5.303571428571989,
+      "stage": "CONFIRMED ENTRY",
+      "trigger": 74128.8,
+      "band": 6.944142857142931,
       "broken_at": 0,
-      "confirmed_at": 0,
-      "reason": "\u0646\u0646\u062a\u0638\u0631 \u062a\u0623\u0643\u064a\u062f \u0627\u0644\u0627\u0633\u062a\u0645\u0631\u0627\u0631 \u062e\u0627\u0631\u062c 74,164.50.",
-      "closed_break": false
+      "confirmed_at": 1794424800.4821384,
+      "reason": "\u062a\u0623\u0643\u064a\u062f \u0627\u0644\u0627\u0633\u062a\u0645\u0631\u0627\u0631 \u062e\u0627\u0631\u062c 74,128.80.",
+      "closed_break": true
     },
     "pause_until": null
   },
