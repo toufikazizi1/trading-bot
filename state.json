@@ -51,17 +51,24 @@
   "XAUUSD": {
     "label": "GOLD (XAU/USD)",
     "timing": {
-      "side": "BUY",
-      "stage": "PRE-TRIGGER",
-      "trigger": 3982.232825,
+      "side": "SELL",
+      "stage": "CONFIRMED ENTRY",
+      "trigger": 3972.099,
       "band": 0.35,
       "broken_at": 0,
-      "confirmed_at": 0,
-      "reason": "\u0646\u0646\u062a\u0638\u0631 \u062a\u0623\u0643\u064a\u062f \u0627\u0644\u0627\u0633\u062a\u0645\u0631\u0627\u0631 \u062e\u0627\u0631\u062c 3,982.23.",
+      "confirmed_at": 1794465889.6172237,
+      "reason": "\u062a\u0623\u0643\u064a\u062f \u0627\u0644\u0627\u0633\u062a\u0645\u0631\u0627\u0631 \u062e\u0627\u0631\u062c 3,972.10.",
       "closed_break": false
     },
-    "last_sent": "2026-11-12T06:25:04.987588+00:00",
-    "open_signal": null,
+    "last_sent": "2026-11-12T06:42:34.894152+00:00",
+    "open_signal": {
+      "direction": "SELL",
+      "entry": 3972.449,
+      "sl": 3974.0379796,
+      "tp1": 3970.54222448,
+      "opened_at": "2026-11-12T06:42:34.894152+00:00",
+      "scalp": true
+    },
     "consecutive_losses": 2,
     "pause_until": null
   }
