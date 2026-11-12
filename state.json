@@ -7,11 +7,11 @@
     "timing": {
       "side": "SELL",
       "stage": "CONFIRMED ENTRY",
-      "trigger": 71345.9,
-      "band": 4.676142857142819,
+      "trigger": 71119.495,
+      "band": 8.551285714285976,
       "broken_at": 0,
-      "confirmed_at": 1794525483.888044,
-      "reason": "\u062a\u0623\u0643\u064a\u062f \u0627\u0644\u0627\u0633\u062a\u0645\u0631\u0627\u0631 \u062e\u0627\u0631\u062c 71,345.90.",
+      "confirmed_at": 1794525828.5727472,
+      "reason": "\u062a\u0623\u0643\u064a\u062f \u0627\u0644\u0627\u0633\u062a\u0645\u0631\u0627\u0631 \u062e\u0627\u0631\u062c 71,119.49.",
       "closed_break": true
     },
     "pause_until": null
@@ -63,8 +63,15 @@
       "reason": "\u0646\u0646\u062a\u0638\u0631 \u062a\u0623\u0643\u064a\u062f \u0627\u0644\u0627\u0633\u062a\u0645\u0631\u0627\u0631 \u062e\u0627\u0631\u062c 3,873.24.",
       "closed_break": false
     },
-    "last_sent": "2026-11-12T23:07:35.448083+00:00",
-    "open_signal": null,
+    "last_sent": "2026-11-12T23:23:04.681743+00:00",
+    "open_signal": {
+      "direction": "SELL",
+      "entry": 3876.678,
+      "sl": 3878.2286712,
+      "tp1": 3874.8171945599997,
+      "opened_at": "2026-11-12T23:23:04.681743+00:00",
+      "scalp": true
+    },
     "consecutive_losses": 1,
     "pause_until": null
   }
