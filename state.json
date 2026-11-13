@@ -7,11 +7,11 @@
     "timing": {
       "side": "SELL",
       "stage": "PRE-TRIGGER",
-      "trigger": 68658.995,
-      "band": 4.425428571428534,
+      "trigger": 68628.84,
+      "band": 5.363999999999775,
       "broken_at": 0,
       "confirmed_at": 0,
-      "reason": "\u0646\u0646\u062a\u0638\u0631 \u062a\u0623\u0643\u064a\u062f \u0627\u0644\u0627\u0633\u062a\u0645\u0631\u0627\u0631 \u062e\u0627\u0631\u062c 68,658.99.",
+      "reason": "\u0646\u0646\u062a\u0638\u0631 \u062a\u0623\u0643\u064a\u062f \u0627\u0644\u0627\u0633\u062a\u0645\u0631\u0627\u0631 \u062e\u0627\u0631\u062c 68,628.84.",
       "closed_break": false
     },
     "pause_until": null
@@ -54,13 +54,13 @@
   "XAUUSD": {
     "label": "GOLD (XAU/USD)",
     "timing": {
-      "side": "SELL",
+      "side": "BUY",
       "stage": "PRE-TRIGGER",
-      "trigger": 3873.4575,
+      "trigger": 3886.4425,
       "band": 0.35,
       "broken_at": 0,
       "confirmed_at": 0,
-      "reason": "\u0646\u0646\u062a\u0638\u0631 \u062a\u0623\u0643\u064a\u062f \u0627\u0644\u0627\u0633\u062a\u0645\u0631\u0627\u0631 \u062e\u0627\u0631\u062c 3,873.46.",
+      "reason": "\u0646\u0646\u062a\u0638\u0631 \u062a\u0623\u0643\u064a\u062f \u0627\u0644\u0627\u0633\u062a\u0645\u0631\u0627\u0631 \u062e\u0627\u0631\u062c 3,886.44.",
       "closed_break": false
     },
     "last_sent": "2026-11-13T19:43:56.932755+00:00",
