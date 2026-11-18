@@ -6,13 +6,13 @@
     "consecutive_losses": 0,
     "timing": {
       "side": "SELL",
-      "stage": "PRE-TRIGGER",
-      "trigger": 64213.18,
-      "band": 5.519571428571465,
+      "stage": "CONFIRMED ENTRY",
+      "trigger": 64228.7,
+      "band": 6.8618571428571995,
       "broken_at": 0,
-      "confirmed_at": 0,
-      "reason": "\u0646\u0646\u062a\u0638\u0631 \u062a\u0623\u0643\u064a\u062f \u0627\u0644\u0627\u0633\u062a\u0645\u0631\u0627\u0631 \u062e\u0627\u0631\u062c 64,213.18.",
-      "closed_break": false
+      "confirmed_at": 1794967284.1459398,
+      "reason": "\u062a\u0623\u0643\u064a\u062f \u0627\u0644\u0627\u0633\u062a\u0645\u0631\u0627\u0631 \u062e\u0627\u0631\u062c 64,228.70.",
+      "closed_break": true
     },
     "pause_until": null
   },
@@ -54,22 +54,22 @@
   "XAUUSD": {
     "label": "GOLD (XAU/USD)",
     "timing": {
-      "side": "BUY",
-      "stage": "PRE-TRIGGER",
-      "trigger": 3855.57895,
-      "band": 0.5393828571428659,
+      "side": "SELL",
+      "stage": "CONFIRMED ENTRY",
+      "trigger": 3806.287,
+      "band": 0.5425328571428703,
       "broken_at": 0,
-      "confirmed_at": 0,
-      "reason": "\u0646\u0646\u062a\u0638\u0631 \u062a\u0623\u0643\u064a\u062f \u0627\u0644\u0627\u0633\u062a\u0645\u0631\u0627\u0631 \u062e\u0627\u0631\u062c 3,855.58.",
-      "closed_break": false
+      "confirmed_at": 1794967270.1510086,
+      "reason": "\u062a\u0623\u0643\u064a\u062f \u0627\u0644\u0627\u0633\u062a\u0645\u0631\u0627\u0631 \u062e\u0627\u0631\u062c 3,806.29.",
+      "closed_break": true
     },
-    "last_sent": "2026-11-18T01:51:09.514730+00:00",
+    "last_sent": "2026-11-18T02:01:25.291867+00:00",
     "open_signal": {
       "direction": "SELL",
-      "entry": 3807.714,
-      "sl": 3810.4632,
-      "tp1": 3804.41496,
-      "opened_at": "2026-11-18T01:51:09.514730+00:00",
+      "entry": 3802.876,
+      "sl": 3805.355142857143,
+      "tp1": 3799.901028571429,
+      "opened_at": "2026-11-18T02:01:25.291867+00:00",
       "scalp": true
     },
     "consecutive_losses": 0,
