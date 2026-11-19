@@ -8,7 +8,7 @@
       "side": "BUY",
       "stage": "PRE-TRIGGER",
       "trigger": 63911.28,
-      "band": 5.778000000000112,
+      "band": 5.663571428571428,
       "broken_at": 0,
       "confirmed_at": 0,
       "reason": "\u0646\u0646\u062a\u0638\u0631 \u062a\u0623\u0643\u064a\u062f \u0627\u0644\u0627\u0633\u062a\u0645\u0631\u0627\u0631 \u062e\u0627\u0631\u062c 63,911.28.",
@@ -54,17 +54,24 @@
   "XAUUSD": {
     "label": "GOLD (XAU/USD)",
     "timing": {
-      "side": "BUY",
-      "stage": "PRE-TRIGGER",
-      "trigger": 3736.56595,
-      "band": 0.597548571428567,
+      "side": "SELL",
+      "stage": "CONFIRMED ENTRY",
+      "trigger": 3717.638,
+      "band": 0.6316199999999851,
       "broken_at": 0,
-      "confirmed_at": 0,
-      "reason": "\u0646\u0646\u062a\u0638\u0631 \u062a\u0623\u0643\u064a\u062f \u0627\u0644\u0627\u0633\u062a\u0645\u0631\u0627\u0631 \u062e\u0627\u0631\u062c 3,736.57.",
-      "closed_break": false
+      "confirmed_at": 1795095456.1995602,
+      "reason": "\u062a\u0623\u0643\u064a\u062f \u0627\u0644\u0627\u0633\u062a\u0645\u0631\u0627\u0631 \u062e\u0627\u0631\u062c 3,717.64.",
+      "closed_break": true
     },
-    "last_sent": "2026-11-19T13:20:36.520148+00:00",
-    "open_signal": null,
+    "last_sent": "2026-11-19T13:34:20.971816+00:00",
+    "open_signal": {
+      "direction": "SELL",
+      "entry": 3718.547,
+      "sl": 3721.3580285714283,
+      "tp1": 3715.1737657142858,
+      "opened_at": "2026-11-19T13:34:20.971816+00:00",
+      "scalp": true
+    },
     "consecutive_losses": 1,
     "pause_until": null
   }
