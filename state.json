@@ -5,14 +5,14 @@
     "open_signal": null,
     "consecutive_losses": 0,
     "timing": {
-      "side": "BUY",
-      "stage": "PRE-TRIGGER",
-      "trigger": 63911.28,
-      "band": 5.663571428571428,
+      "side": "SELL",
+      "stage": "MISSED",
+      "trigger": 63660.2,
+      "band": 6.040285714285845,
       "broken_at": 0,
       "confirmed_at": 0,
-      "reason": "\u0646\u0646\u062a\u0638\u0631 \u062a\u0623\u0643\u064a\u062f \u0627\u0644\u0627\u0633\u062a\u0645\u0631\u0627\u0631 \u062e\u0627\u0631\u062c 63,911.28.",
-      "closed_break": false
+      "reason": "\u0641\u0627\u062a \u0648\u0642\u062a \u0627\u0644\u062f\u062e\u0648\u0644 \u2014 \u0644\u0627 \u0645\u0637\u0627\u0631\u062f\u0629.",
+      "closed_break": true
     },
     "pause_until": null
   },
@@ -56,23 +56,16 @@
     "timing": {
       "side": "SELL",
       "stage": "CONFIRMED ENTRY",
-      "trigger": 3717.638,
-      "band": 0.6316199999999851,
+      "trigger": 3713.897,
+      "band": 0.5906699999999916,
       "broken_at": 0,
-      "confirmed_at": 1795095456.1995602,
-      "reason": "\u062a\u0623\u0643\u064a\u062f \u0627\u0644\u0627\u0633\u062a\u0645\u0631\u0627\u0631 \u062e\u0627\u0631\u062c 3,717.64.",
+      "confirmed_at": 1795095771.6011143,
+      "reason": "\u062a\u0623\u0643\u064a\u062f \u0627\u0644\u0627\u0633\u062a\u0645\u0631\u0627\u0631 \u062e\u0627\u0631\u062c 3,713.90.",
       "closed_break": true
     },
     "last_sent": "2026-11-19T13:34:20.971816+00:00",
-    "open_signal": {
-      "direction": "SELL",
-      "entry": 3718.547,
-      "sl": 3721.3580285714283,
-      "tp1": 3715.1737657142858,
-      "opened_at": "2026-11-19T13:34:20.971816+00:00",
-      "scalp": true
-    },
-    "consecutive_losses": 1,
+    "open_signal": null,
+    "consecutive_losses": 0,
     "pause_until": null
   }
 }
