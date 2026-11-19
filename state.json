@@ -8,7 +8,7 @@
       "side": "SELL",
       "stage": "PRE-TRIGGER",
       "trigger": 63676.3275,
-      "band": 5.345999999999757,
+      "band": 4.557857142856956,
       "broken_at": 0,
       "confirmed_at": 0,
       "reason": "\u0646\u0646\u062a\u0638\u0631 \u062a\u0623\u0643\u064a\u062f \u0627\u0644\u0627\u0633\u062a\u0645\u0631\u0627\u0631 \u062e\u0627\u0631\u062c 63,676.33.",
@@ -60,8 +60,15 @@
       "band": 0,
       "reason": "\u0644\u0627 \u064a\u0648\u062c\u062f Trigger \u0635\u0627\u0644\u062d."
     },
-    "last_sent": "2026-11-19T13:55:37.043835+00:00",
-    "open_signal": null,
+    "last_sent": "2026-11-19T14:21:51.255991+00:00",
+    "open_signal": {
+      "direction": "SELL",
+      "entry": 3707.894,
+      "sl": 3709.718857142857,
+      "tp1": 3705.704171428571,
+      "opened_at": "2026-11-19T14:21:51.255991+00:00",
+      "scalp": true
+    },
     "consecutive_losses": 1,
     "pause_until": null
   }
