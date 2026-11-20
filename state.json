@@ -7,11 +7,11 @@
     "timing": {
       "side": "SELL",
       "stage": "CONFIRMED ENTRY",
-      "trigger": 59192.7,
-      "band": 13.59,
+      "trigger": 59144.2,
+      "band": 13.406142857142818,
       "broken_at": 0,
-      "confirmed_at": 1795195901.1478627,
-      "reason": "\u062a\u0623\u0643\u064a\u062f \u0627\u0644\u0627\u0633\u062a\u0645\u0631\u0627\u0631 \u062e\u0627\u0631\u062c 59,192.70.",
+      "confirmed_at": 1795195990.7920308,
+      "reason": "\u062a\u0623\u0643\u064a\u062f \u0627\u0644\u0627\u0633\u062a\u0645\u0631\u0627\u0631 \u062e\u0627\u0631\u062c 59,144.20.",
       "closed_break": true
     },
     "pause_until": null
