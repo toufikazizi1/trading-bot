@@ -5,14 +5,14 @@
     "open_signal": null,
     "consecutive_losses": 1,
     "timing": {
-      "side": "BUY",
-      "stage": "PRE-TRIGGER",
-      "trigger": 60339.659999999996,
-      "band": 25.583142857142985,
+      "side": "SELL",
+      "stage": "CONFIRMED ENTRY",
+      "trigger": 58242.8,
+      "band": 20.80414285714293,
       "broken_at": 0,
-      "confirmed_at": 0,
-      "reason": "\u0646\u0646\u062a\u0638\u0631 \u062a\u0623\u0643\u064a\u062f \u0627\u0644\u0627\u0633\u062a\u0645\u0631\u0627\u0631 \u062e\u0627\u0631\u062c 60,339.66.",
-      "closed_break": false
+      "confirmed_at": 1795201345.5303962,
+      "reason": "\u062a\u0623\u0643\u064a\u062f \u0627\u0644\u0627\u0633\u062a\u0645\u0631\u0627\u0631 \u062e\u0627\u0631\u062c 58,242.80.",
+      "closed_break": true
     },
     "pause_until": null
   },
