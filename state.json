@@ -1,22 +1,25 @@
 {
   "XBTUSD": {
     "label": "BTC/USDT",
-    "last_sent": "2026-11-20T15:52:37.539074+00:00",
+    "last_sent": "2026-11-20T15:58:23.784595+00:00",
     "open_signal": {
       "direction": "SELL",
-      "entry": 59498.7,
-      "sl": 59626.7,
-      "tp1": 59345.1,
-      "opened_at": "2026-11-20T15:52:37.539074+00:00",
+      "entry": 59343.8,
+      "sl": 59469.571428571435,
+      "tp1": 59192.874285714286,
+      "opened_at": "2026-11-20T15:58:23.784595+00:00",
       "scalp": true
     },
     "consecutive_losses": 0,
     "timing": {
-      "side": null,
-      "stage": "IDLE",
-      "trigger": null,
-      "band": 0,
-      "reason": "\u0644\u0627 \u064a\u0648\u062c\u062f Trigger \u0635\u0627\u0644\u062d."
+      "side": "SELL",
+      "stage": "CONFIRMED ENTRY",
+      "trigger": 59459.8,
+      "band": 28.744714285714434,
+      "broken_at": 0,
+      "confirmed_at": 1795190273.2895608,
+      "reason": "\u062a\u0623\u0643\u064a\u062f \u0627\u0644\u0627\u0633\u062a\u0645\u0631\u0627\u0631 \u062e\u0627\u0631\u062c 59,459.80.",
+      "closed_break": true
     },
     "pause_until": null
   },
@@ -58,17 +61,21 @@
   "XAUUSD": {
     "label": "GOLD (XAU/USD)",
     "timing": {
-      "side": "SELL",
-      "stage": "PRE-TRIGGER",
-      "trigger": 3549.483,
-      "band": 0.8237571428571566,
-      "broken_at": 0,
-      "confirmed_at": 0,
-      "reason": "\u0646\u0646\u062a\u0638\u0631 \u062a\u0623\u0643\u064a\u062f \u0627\u0644\u0627\u0633\u062a\u0645\u0631\u0627\u0631 \u062e\u0627\u0631\u062c 3,549.48.",
-      "closed_break": false
+      "side": null,
+      "stage": "IDLE",
+      "trigger": null,
+      "band": 0,
+      "reason": "\u0644\u0627 \u064a\u0648\u062c\u062f Trigger \u0635\u0627\u0644\u062d."
     },
-    "last_sent": "2026-11-20T15:30:09.264789+00:00",
-    "open_signal": null,
+    "last_sent": "2026-11-20T15:57:40.508162+00:00",
+    "open_signal": {
+      "direction": "SELL",
+      "entry": 3548.272,
+      "sl": 3551.54,
+      "tp1": 3544.3504,
+      "opened_at": "2026-11-20T15:57:40.508162+00:00",
+      "scalp": true
+    },
     "consecutive_losses": 1,
     "pause_until": null
   }
