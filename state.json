@@ -1,18 +1,18 @@
 {
   "XBTUSD": {
     "label": "BTC/USDT",
-    "last_sent": "2026-11-22T01:49:12.611051+00:00",
+    "last_sent": "2026-11-22T02:31:42.439197+00:00",
     "open_signal": null,
     "consecutive_losses": 0,
     "timing": {
       "side": "SELL",
-      "stage": "MISSED",
-      "trigger": 59945.195,
-      "band": 6.918428571428365,
+      "stage": "CONFIRMED ENTRY",
+      "trigger": 59537.835,
+      "band": 9.489857142856938,
       "broken_at": 0,
-      "confirmed_at": 0,
-      "reason": "\u0641\u0627\u062a \u0648\u0642\u062a \u0627\u0644\u062f\u062e\u0648\u0644 \u2014 \u0644\u0627 \u0645\u0637\u0627\u0631\u062f\u0629.",
-      "closed_break": true
+      "confirmed_at": 1795314778.0828547,
+      "reason": "\u062a\u0623\u0643\u064a\u062f \u0627\u0644\u0627\u0633\u062a\u0645\u0631\u0627\u0631 \u062e\u0627\u0631\u062c 59,537.83.",
+      "closed_break": false
     },
     "pause_until": null
   },
