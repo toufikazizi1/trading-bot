@@ -63,16 +63,9 @@
       "reason": "\u062a\u0623\u0643\u064a\u062f \u0627\u0644\u0627\u0633\u062a\u0645\u0631\u0627\u0631 \u062e\u0627\u0631\u062c 3,638.53.",
       "closed_break": true
     },
-    "last_sent": "2026-11-23T20:46:09.598173+00:00",
-    "open_signal": {
-      "direction": "SELL",
-      "entry": 3638.151,
-      "sl": 3639.6062604,
-      "tp1": 3636.4046875199997,
-      "opened_at": "2026-11-23T20:46:09.598173+00:00",
-      "scalp": true
-    },
-    "consecutive_losses": 2,
+    "last_sent": "2026-11-23T20:47:24.953055+00:00",
+    "open_signal": null,
+    "consecutive_losses": 0,
     "pause_until": null
   }
 }
