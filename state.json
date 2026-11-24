@@ -2,21 +2,17 @@
   "XBTUSD": {
     "label": "BTC/USDT",
     "last_sent": "2026-11-24T15:04:18.559014+00:00",
-    "open_signal": {
-      "direction": "SELL",
-      "entry": 60218.5,
-      "sl": 60295.065714285716,
-      "tp1": 60126.62114285714,
-      "opened_at": "2026-11-24T15:04:18.559014+00:00",
-      "scalp": true
-    },
-    "consecutive_losses": 1,
+    "open_signal": null,
+    "consecutive_losses": 0,
     "timing": {
-      "side": null,
-      "stage": "IDLE",
-      "trigger": null,
-      "band": 0,
-      "reason": "\u0644\u0627 \u064a\u0648\u062c\u062f Trigger \u0635\u0627\u0644\u062d."
+      "side": "SELL",
+      "stage": "PRE-TRIGGER",
+      "trigger": 59837.0,
+      "band": 21.396857142857197,
+      "broken_at": 0,
+      "confirmed_at": 0,
+      "reason": "\u0646\u0646\u062a\u0638\u0631 \u062a\u0623\u0643\u064a\u062f \u0627\u0644\u0627\u0633\u062a\u0645\u0631\u0627\u0631 \u062e\u0627\u0631\u062c 59,837.00.",
+      "closed_break": false
     },
     "pause_until": null
   },
@@ -59,24 +55,24 @@
     "label": "GOLD (XAU/USD)",
     "timing": {
       "side": "SELL",
-      "stage": "CONFIRMED ENTRY",
-      "trigger": 3616.212425,
-      "band": 0.6920357142857294,
+      "stage": "MISSED",
+      "trigger": 3616.5572,
+      "band": 0.7365214285714384,
       "broken_at": 0,
-      "confirmed_at": 1795532706.678463,
-      "reason": "\u062a\u0623\u0643\u064a\u062f \u0627\u0644\u0627\u0633\u062a\u0645\u0631\u0627\u0631 \u062e\u0627\u0631\u062c 3,616.21.",
+      "confirmed_at": 0,
+      "reason": "\u0641\u0627\u062a \u0648\u0642\u062a \u0627\u0644\u062f\u062e\u0648\u0644 \u2014 \u0644\u0627 \u0645\u0637\u0627\u0631\u062f\u0629.",
       "closed_break": true
     },
-    "last_sent": "2026-11-24T15:05:06.678673+00:00",
+    "last_sent": "2026-11-24T15:10:05.087872+00:00",
     "open_signal": {
       "direction": "SELL",
-      "entry": 3614.1755,
-      "sl": 3617.142414285714,
-      "tp1": 3610.615202857143,
-      "opened_at": "2026-11-24T15:05:06.678673+00:00",
+      "entry": 3607.5475,
+      "sl": 3610.628242857143,
+      "tp1": 3603.8506085714284,
+      "opened_at": "2026-11-24T15:10:05.087872+00:00",
       "scalp": true
     },
-    "consecutive_losses": 2,
+    "consecutive_losses": 0,
     "pause_until": null
   }
 }
