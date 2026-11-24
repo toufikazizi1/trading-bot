@@ -1,20 +1,20 @@
 {
   "XBTUSD": {
     "label": "BTC/USDT",
-    "last_sent": "2026-11-24T15:28:19.016353+00:00",
+    "last_sent": "2026-11-24T15:56:03.483032+00:00",
     "open_signal": null,
-    "consecutive_losses": 2,
+    "consecutive_losses": 0,
     "timing": {
       "side": "BUY",
       "stage": "PRE-TRIGGER",
       "trigger": 60533.645000000004,
-      "band": 17.989714285714246,
+      "band": 18.82028571428566,
       "broken_at": 0,
       "confirmed_at": 0,
       "reason": "\u0646\u0646\u062a\u0638\u0631 \u062a\u0623\u0643\u064a\u062f \u0627\u0644\u0627\u0633\u062a\u0645\u0631\u0627\u0631 \u062e\u0627\u0631\u062c 60,533.65.",
       "closed_break": false
     },
-    "pause_until": null
+    "pause_until": "2026-11-24T19:57:03.605107+00:00"
   },
   "PAXGUSD": {
     "label": "GOLD (PAXG)",
