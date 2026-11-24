@@ -53,16 +53,16 @@
     "timing": {
       "side": "BUY",
       "stage": "PRE-TRIGGER",
-      "trigger": 3675.6232,
-      "band": 0.4346999999999934,
+      "trigger": 3638.78195,
+      "band": 0.368138571428569,
       "broken_at": 0,
       "confirmed_at": 0,
-      "reason": "\u0646\u0646\u062a\u0638\u0631 \u062a\u0623\u0643\u064a\u062f \u0627\u0644\u0627\u0633\u062a\u0645\u0631\u0627\u0631 \u062e\u0627\u0631\u062c 3,675.62.",
+      "reason": "\u0646\u0646\u062a\u0638\u0631 \u062a\u0623\u0643\u064a\u062f \u0627\u0644\u0627\u0633\u062a\u0645\u0631\u0627\u0631 \u062e\u0627\u0631\u062c 3,638.78.",
       "closed_break": false
     },
-    "last_sent": "2026-11-24T03:22:54.776096+00:00",
+    "last_sent": "2026-11-24T07:30:07.406157+00:00",
     "open_signal": null,
     "consecutive_losses": 0,
-    "pause_until": "2026-11-24T07:29:54.877881+00:00"
+    "pause_until": null
   }
 }
