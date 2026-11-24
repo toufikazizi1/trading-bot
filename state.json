@@ -1,24 +1,20 @@
 {
   "XBTUSD": {
     "label": "BTC/USDT",
-    "last_sent": "2026-11-24T01:13:08.159073+00:00",
-    "open_signal": {
-      "direction": "BUY",
-      "entry": 61467.9,
-      "sl": 61417.60857142857,
-      "tp1": 61528.24971428571,
-      "opened_at": "2026-11-24T01:13:08.159073+00:00",
-      "scalp": true
-    },
-    "consecutive_losses": 1,
+    "last_sent": "2026-11-24T01:14:52.325304+00:00",
+    "open_signal": null,
+    "consecutive_losses": 0,
     "timing": {
-      "side": null,
-      "stage": "IDLE",
-      "trigger": null,
-      "band": 0,
-      "reason": "\u0644\u0627 \u064a\u0648\u062c\u062f Trigger \u0635\u0627\u0644\u062d."
+      "side": "SELL",
+      "stage": "PRE-TRIGGER",
+      "trigger": 61021.3825,
+      "band": 11.883857142856712,
+      "broken_at": 0,
+      "confirmed_at": 0,
+      "reason": "\u0646\u0646\u062a\u0638\u0631 \u062a\u0623\u0643\u064a\u062f \u0627\u0644\u0627\u0633\u062a\u0645\u0631\u0627\u0631 \u062e\u0627\u0631\u062c 61,021.38.",
+      "closed_break": false
     },
-    "pause_until": null
+    "pause_until": "2026-11-24T05:16:38.222431+00:00"
   },
   "PAXGUSD": {
     "label": "GOLD (PAXG)",
@@ -58,11 +54,14 @@
   "XAUUSD": {
     "label": "GOLD (XAU/USD)",
     "timing": {
-      "side": null,
-      "stage": "IDLE",
-      "trigger": null,
-      "band": 0,
-      "reason": "\u0644\u0627 \u064a\u0648\u062c\u062f Trigger \u0635\u0627\u0644\u062d."
+      "side": "SELL",
+      "stage": "PRE-TRIGGER",
+      "trigger": 3631.1335,
+      "band": 0.6373285714285736,
+      "broken_at": 0,
+      "confirmed_at": 0,
+      "reason": "\u0646\u0646\u062a\u0638\u0631 \u062a\u0623\u0643\u064a\u062f \u0627\u0644\u0627\u0633\u062a\u0645\u0631\u0627\u0631 \u062e\u0627\u0631\u062c 3,631.13.",
+      "closed_break": false
     },
     "last_sent": "2026-11-24T00:50:11.501211+00:00",
     "open_signal": null,
