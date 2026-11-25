@@ -1,20 +1,20 @@
 {
   "XBTUSD": {
     "label": "BTC/USDT",
-    "last_sent": "2026-11-25T12:41:19.353172+00:00",
+    "last_sent": "2026-11-25T12:56:34.830540+00:00",
     "open_signal": null,
-    "consecutive_losses": 2,
+    "consecutive_losses": 0,
     "timing": {
-      "side": "SELL",
+      "side": "BUY",
       "stage": "PRE-TRIGGER",
-      "trigger": 58421.494999999995,
-      "band": 8.872714285714173,
+      "trigger": 58915.445,
+      "band": 7.257857142857048,
       "broken_at": 0,
       "confirmed_at": 0,
-      "reason": "\u0646\u0646\u062a\u0638\u0631 \u062a\u0623\u0643\u064a\u062f \u0627\u0644\u0627\u0633\u062a\u0645\u0631\u0627\u0631 \u062e\u0627\u0631\u062c 58,421.49.",
+      "reason": "\u0646\u0646\u062a\u0638\u0631 \u062a\u0623\u0643\u064a\u062f \u0627\u0644\u0627\u0633\u062a\u0645\u0631\u0627\u0631 \u062e\u0627\u0631\u062c 58,915.44.",
       "closed_break": false
     },
-    "pause_until": null
+    "pause_until": "2026-11-25T16:59:04.257679+00:00"
   },
   "PAXGUSD": {
     "label": "GOLD (PAXG)",
@@ -54,25 +54,18 @@
   "XAUUSD": {
     "label": "GOLD (XAU/USD)",
     "timing": {
-      "side": "SELL",
+      "side": "BUY",
       "stage": "PRE-TRIGGER",
-      "trigger": 3515.3435,
-      "band": 0.4982014285714376,
+      "trigger": 3535.80335,
+      "band": 0.4890214285714384,
       "broken_at": 0,
       "confirmed_at": 0,
-      "reason": "\u0646\u0646\u062a\u0638\u0631 \u062a\u0623\u0643\u064a\u062f \u0627\u0644\u0627\u0633\u062a\u0645\u0631\u0627\u0631 \u062e\u0627\u0631\u062c 3,515.34.",
+      "reason": "\u0646\u0646\u062a\u0638\u0631 \u062a\u0623\u0643\u064a\u062f \u0627\u0644\u0627\u0633\u062a\u0645\u0631\u0627\u0631 \u062e\u0627\u0631\u062c 3,535.80.",
       "closed_break": false
     },
     "last_sent": "2026-11-25T12:54:50.416349+00:00",
-    "open_signal": {
-      "direction": "SELL",
-      "entry": 3518.5375,
-      "sl": 3520.7881285714284,
-      "tp1": 3515.8367457142854,
-      "opened_at": "2026-11-25T12:54:50.416349+00:00",
-      "scalp": true
-    },
-    "consecutive_losses": 2,
-    "pause_until": null
+    "open_signal": null,
+    "consecutive_losses": 0,
+    "pause_until": "2026-11-25T16:58:50.705017+00:00"
   }
 }
