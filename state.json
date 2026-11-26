@@ -1,18 +1,22 @@
 {
   "XBTUSD": {
     "label": "BTC/USDT",
-    "last_sent": "2026-11-26T14:49:37.877053+00:00",
-    "open_signal": null,
+    "last_sent": "2026-11-26T15:48:08.890453+00:00",
+    "open_signal": {
+      "direction": "BUY",
+      "entry": 60454.6,
+      "sl": 60406.40571428571,
+      "tp1": 60512.43314285714,
+      "opened_at": "2026-11-26T15:48:08.890453+00:00",
+      "scalp": true
+    },
     "consecutive_losses": 0,
     "timing": {
-      "side": "BUY",
-      "stage": "PRE-TRIGGER",
-      "trigger": 60834.847499999996,
-      "band": 10.267714285714266,
-      "broken_at": 0,
-      "confirmed_at": 0,
-      "reason": "\u0646\u0646\u062a\u0638\u0631 \u062a\u0623\u0643\u064a\u062f \u0627\u0644\u0627\u0633\u062a\u0645\u0631\u0627\u0631 \u062e\u0627\u0631\u062c 60,834.85.",
-      "closed_break": false
+      "side": null,
+      "stage": "IDLE",
+      "trigger": null,
+      "band": 0,
+      "reason": "\u0644\u0627 \u064a\u0648\u062c\u062f Trigger \u0635\u0627\u0644\u062d."
     },
     "pause_until": null
   },
@@ -54,18 +58,15 @@
   "XAUUSD": {
     "label": "GOLD (XAU/USD)",
     "timing": {
-      "side": "BUY",
-      "stage": "PRE-TRIGGER",
-      "trigger": 3576.0099,
-      "band": 0.35,
-      "broken_at": 0,
-      "confirmed_at": 0,
-      "reason": "\u0646\u0646\u062a\u0638\u0631 \u062a\u0623\u0643\u064a\u062f \u0627\u0644\u0627\u0633\u062a\u0645\u0631\u0627\u0631 \u062e\u0627\u0631\u062c 3,576.01.",
-      "closed_break": false
+      "side": null,
+      "stage": "IDLE",
+      "trigger": null,
+      "band": 0,
+      "reason": "\u0644\u0627 \u064a\u0648\u062c\u062f Trigger \u0635\u0627\u0644\u062d."
     },
-    "last_sent": "2026-11-26T11:39:51.575727+00:00",
+    "last_sent": "2026-11-26T15:46:25.277207+00:00",
     "open_signal": null,
     "consecutive_losses": 0,
-    "pause_until": "2026-11-26T15:46:22.581508+00:00"
+    "pause_until": null
   }
 }
